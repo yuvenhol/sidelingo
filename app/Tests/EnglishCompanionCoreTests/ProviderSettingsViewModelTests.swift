@@ -3,6 +3,20 @@ import XCTest
 
 @MainActor
 final class ProviderSettingsViewModelTests: XCTestCase {
+    func testNewSettingsDefaultToLatestDeepSeekFlashAlias() {
+        let settings = SettingsRepositorySpy()
+        let credentials = FailingCredentialRepository()
+        let viewModel = ProviderSettingsViewModel(
+            settingsRepository: settings,
+            settingsService: ProviderSettingsService(
+                settingsRepository: settings,
+                credentialRepository: credentials
+            )
+        )
+
+        XCTAssertEqual(viewModel.model, "deepseek-v4-flash")
+    }
+
     func testDismissClearsTransientAPIKeyAndStatus() {
         let settings = SettingsRepositorySpy()
         let credentials = FailingCredentialRepository()

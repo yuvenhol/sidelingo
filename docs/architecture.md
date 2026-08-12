@@ -43,7 +43,7 @@ Swift core
 - Explicit Accessibility permission/no-selection outcomes.
 - Chrome real selected-text capture through Accessibility.
 - Stable local code-signing requirement across rebuilds.
-- DeepSeek-only provider slice with a fixed `https://api.deepseek.com` preset and configurable model.
+- DeepSeek-only provider slice with fixed `https://api.deepseek.com`, official `deepseek-v4-flash` default alias, and configurable model.
 - SwiftOpenAI request/response handling with JSON mode and strict product-owned output decoding.
 - KeychainAccess credential adapter covered through an injected test backend.
 - UserDefaults stores only provider and model settings.

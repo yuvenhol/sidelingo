@@ -11,6 +11,14 @@ public enum ProviderPreset {
             URL(string: "https://api.deepseek.com")!
         }
     }
+
+    public static func defaultModel(for provider: SupportedProvider) -> String {
+        switch provider {
+        case .deepSeek:
+            // Stable alias documented at https://api-docs.deepseek.com/
+            "deepseek-v4-flash"
+        }
+    }
 }
 
 public struct ProviderConfiguration: Codable, Equatable, Sendable {

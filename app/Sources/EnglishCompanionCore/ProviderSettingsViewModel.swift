@@ -13,7 +13,7 @@ public final class ProviderSettingsViewModel: ObservableObject {
         settingsRepository: any ProviderSettingsRepository,
         settingsService: ProviderSettingsService
     ) {
-        model = settingsRepository.load()?.model ?? "deepseek-chat"
+        model = settingsRepository.load()?.model ?? ProviderPreset.defaultModel(for: .deepSeek)
         self.settingsService = settingsService
     }
 

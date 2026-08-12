@@ -21,6 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.mainMenu = ApplicationMenuFactory.makeMainMenu(applicationName: "English Companion")
         NSApp.setActivationPolicy(.accessory)
         let processor = ConfiguredProviderProcessor(
             settingsRepository: providerSettings,

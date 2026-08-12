@@ -9,7 +9,7 @@ English Companion is a native macOS app with an AppKit shell and SwiftUI interfa
 - Dark Raycast-style SwiftUI Quick Panel
 - `Esc` hide and menu-bar lifecycle
 - Manual result copy
-- DeepSeek processing through SwiftOpenAI with a configurable model
+- DeepSeek processing through SwiftOpenAI with the official `deepseek-v4-flash` default alias and a configurable model
 - DeepSeek model settings in UserDefaults and API key storage through KeychainAccess
 - SQLite UTF-8 history
 - Async Quick Panel loading, success, error and cancellation states
