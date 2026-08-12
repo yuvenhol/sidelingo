@@ -77,7 +77,7 @@ private final class ProviderFactorySpy: @unchecked Sendable {
     private(set) var providers: [SupportedProvider] = []
     private(set) var models: [String] = []
 
-    func make(provider: SupportedProvider, apiKey: String, model: String) -> any ProviderProcessing {
+    func make(provider: SupportedProvider, apiKey: String, model: String) -> any ProviderStreaming {
         callCount += 1
         providers.append(provider)
         models.append(model)
@@ -85,8 +85,20 @@ private final class ProviderFactorySpy: @unchecked Sendable {
     }
 }
 
-private struct SuccessfulProcessor: ProviderProcessing {
-    func process(mode: CompanionMode, text: String) async throws -> CompanionOutput {
-        CompanionOutput(primary: "processed", secondaryTitle: "title", secondary: "secondary")
+private struct SuccessfulProcessor: ProviderStreaming {
+    func stream(
+        mode: CompanionMode,
+        text: String
+    ) async throws -> AsyncThrowingStream<CompanionOutputPartial, Error> {
+        AsyncThrowingStream { continuation in
+            continuation.yield(
+                CompanionOutputPartial(
+                    primary: "processed",
+                    secondaryTitle: "title",
+                    secondary: "secondary"
+                )
+            )
+            continuation.finish()
+        }
     }
 }

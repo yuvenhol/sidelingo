@@ -28,6 +28,7 @@ final class QuickPanelViewModel: ObservableObject {
     @Published var output = CompanionOutput(primary: "", secondaryTitle: "", secondary: "")
     @Published var unavailableMessage: String?
     @Published var isLoading = false
+    @Published var isCopyEnabled = false
 
     var onRun: (() -> Void)?
     var onCopy: (() -> Void)?
@@ -42,13 +43,14 @@ final class QuickPanelController: NSWindowController {
     private var escapeMonitor: Any?
     private var cancellables: Set<AnyCancellable> = []
 
-    init(processor: any ProviderProcessing, historyStore: SQLiteHistoryStore?) {
+    init(processor: any ProviderStreaming, historyStore: SQLiteHistoryStore?) {
         processingSession = QuickPanelProcessingSession(
             processor: processor,
             historyRecorder: historyStore
         )
+        let panelHeight = CGFloat(QuickPanelInputPresentation.panelHeight)
         let panel = QuickPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 780, height: 414),
+            contentRect: NSRect(x: 0, y: 0, width: 780, height: panelHeight),
             styleMask: [.borderless, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -121,21 +123,32 @@ final class QuickPanelController: NSWindowController {
     }
 
     private func copyPrimary() {
+        guard viewModel.isCopyEnabled else { return }
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(viewModel.output.primary, forType: .string)
     }
 
     private func apply(_ state: QuickPanelProcessingState) {
-        viewModel.isLoading = state == .loading
+        if case .streaming = state {
+            viewModel.isLoading = true
+        } else {
+            viewModel.isLoading = false
+        }
         switch state {
-        case .idle, .loading:
-            break
+        case .idle:
+            viewModel.isCopyEnabled = false
+        case let .streaming(partial):
+            viewModel.unavailableMessage = nil
+            viewModel.output = QuickPanelResultPresentation.output(for: partial)
+            viewModel.isCopyEnabled = false
         case let .success(output):
             viewModel.unavailableMessage = nil
             viewModel.output = output
+            viewModel.isCopyEnabled = processingSession.isCopyEnabled
         case let .error(message):
             viewModel.unavailableMessage = message
+            viewModel.isCopyEnabled = false
             viewModel.output = CompanionOutput(
                 primary: message,
                 secondaryTitle: "PROVIDER ERROR",
@@ -152,7 +165,10 @@ final class QuickPanelController: NSWindowController {
     private func present() {
         guard let panel = window as? NSPanel,
               let screen = NSScreen.main else { return }
-        let size = NSSize(width: 780, height: 414)
+        let size = NSSize(
+            width: 780,
+            height: CGFloat(QuickPanelInputPresentation.panelHeight)
+        )
         let visible = screen.visibleFrame
         panel.setFrame(
             NSRect(

@@ -9,7 +9,7 @@ extension SQLiteHistoryStore: HistoryRecording {}
 
 public enum QuickPanelProcessingState: Equatable, Sendable {
     case idle
-    case loading
+    case streaming(CompanionOutputPartial)
     case success(CompanionOutput)
     case error(String)
 }
@@ -19,16 +19,22 @@ public final class QuickPanelProcessingSession: ObservableObject {
     @Published public private(set) var state: QuickPanelProcessingState = .idle
 
     public var isInputEditable: Bool {
-        state != .loading
+        if case .streaming = state { return false }
+        return true
     }
 
-    private let processor: any ProviderProcessing
+    public var isCopyEnabled: Bool {
+        guard case let .success(output) = state else { return false }
+        return !output.primary.isEmpty
+    }
+
+    private let processor: any ProviderStreaming
     private let historyRecorder: (any HistoryRecording)?
     private var task: Task<Void, Never>?
     private var requestID = 0
 
     public init(
-        processor: any ProviderProcessing,
+        processor: any ProviderStreaming,
         historyRecorder: (any HistoryRecording)? = nil
     ) {
         self.processor = processor
@@ -40,12 +46,28 @@ public final class QuickPanelProcessingSession: ObservableObject {
         requestID += 1
         let submittedRequestID = requestID
         let processor = processor
-        state = .loading
+        state = .streaming(CompanionOutputPartial())
 
         task = Task { [weak self] in
             do {
-                let output = try await processor.process(mode: mode, text: text)
+                let stream = try await processor.stream(mode: mode, text: text)
+                var finalPartial: CompanionOutputPartial?
+                for try await partial in stream {
+                    guard let self, self.requestID == submittedRequestID else { return }
+                    finalPartial = partial
+                    self.state = .streaming(partial)
+                }
                 guard let self, self.requestID == submittedRequestID else { return }
+                guard let primary = finalPartial?.primary,
+                      let secondaryTitle = finalPartial?.secondaryTitle,
+                      let secondary = finalPartial?.secondary else {
+                    throw ProviderProcessingError.invalidResponse
+                }
+                let output = CompanionOutput(
+                    primary: primary,
+                    secondaryTitle: secondaryTitle,
+                    secondary: secondary
+                )
                 self.state = .success(output)
                 let record = HistoryRecord(
                     mode: mode,
@@ -71,12 +93,11 @@ public final class QuickPanelProcessingSession: ObservableObject {
     }
 
     private static func message(for error: Error) -> String {
-        if let localized = error as? LocalizedError,
-           let description = localized.errorDescription,
+        if let providerError = error as? ProviderProcessingError,
+           let description = providerError.errorDescription,
            !description.isEmpty {
             return description
         }
-        let description = String(describing: error)
-        return description.isEmpty ? "Processing failed." : description
+        return "Processing failed."
     }
 }

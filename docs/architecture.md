@@ -44,7 +44,7 @@ Swift core
 - Chrome real selected-text capture through Accessibility.
 - Stable local code-signing requirement across rebuilds.
 - DeepSeek-only provider slice with fixed `https://api.deepseek.com`, official `deepseek-v4-flash` default alias, and configurable model.
-- SwiftOpenAI request/response handling with JSON mode and strict product-owned output decoding.
+- SwiftOpenAI `startStreamedChat(parameters:)` handling with ordered JSONL deltas, strict product-owned incremental parsing, and typed partial UI updates.
 - KeychainAccess credential adapter covered through an injected test backend.
 - UserDefaults stores only provider and model settings.
 - SQLite UTF-8 history round trip.

@@ -18,11 +18,13 @@ struct QuickPanelView: View {
         VStack(spacing: 0) {
             inputShell
             divider
+            sourcePreview
+            divider
             resultRegion
             divider
             statusBar
         }
-        .frame(width: 780, height: 414)
+        .frame(width: 780, height: CGFloat(QuickPanelInputPresentation.panelHeight))
         .background(
             ZStack {
                 AppKitVisualEffect(material: .hudWindow, blendingMode: .behindWindow)
@@ -39,7 +41,7 @@ struct QuickPanelView: View {
     }
 
     private var inputShell: some View {
-        HStack(alignment: .top, spacing: 14) {
+        HStack(alignment: .center, spacing: 14) {
             Text(model.mode == .translate ? "译" : "优")
                 .font(.system(size: 15, weight: .bold))
                 .foregroundStyle(model.mode == .translate ? Color(hex: 0xE9DEFF) : Color(hex: 0xD8FFF1))
@@ -59,14 +61,14 @@ struct QuickPanelView: View {
                         .stroke(model.mode == .translate ? accent.opacity(0.28) : green.opacity(0.28), lineWidth: 1)
                 )
 
-            TextEditor(text: $model.input)
+            TextField("Enter or paste text", text: $model.input)
+                .textFieldStyle(.plain)
                 .font(.system(size: 20, weight: .regular))
                 .foregroundStyle(text)
+                .lineLimit(QuickPanelInputPresentation.editorLineLimit)
+                .truncationMode(.tail)
                 .disabled(model.isLoading)
-                .scrollContentBackground(.hidden)
-                .background(.clear)
-                .frame(height: 58)
-                .padding(.top, -3)
+                .frame(maxWidth: .infinity, minHeight: 40, maxHeight: 40, alignment: .center)
 
             Button(action: { model.onRun?() }) {
                 HStack(spacing: 8) {
@@ -79,12 +81,28 @@ struct QuickPanelView: View {
             .buttonStyle(PanelButtonStyle(accent: true))
             .disabled(model.isLoading)
             .keyboardShortcut(.return, modifiers: .command)
-            .padding(.top, 2)
         }
         .padding(.horizontal, 18)
-        .padding(.top, 18)
-        .padding(.bottom, 14)
-        .frame(height: 90)
+        .padding(.vertical, 14)
+        .frame(height: 72)
+    }
+
+    private var sourcePreview: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionLabel(QuickPanelInputPresentation.previewTitle, primary: false)
+            ScrollView {
+                Text(model.input)
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(Color(hex: 0xD8D3DE))
+                    .lineSpacing(4)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+            }
+        }
+        .padding(.horizontal, 22)
+        .padding(.vertical, 12)
+        .frame(height: 96, alignment: .topLeading)
+        .background(Color.black.opacity(0.08))
     }
 
     private var resultRegion: some View {
@@ -104,18 +122,19 @@ struct QuickPanelView: View {
                         .frame(height: 28)
                     }
                     .buttonStyle(PanelButtonStyle())
-                    .disabled(model.isLoading || model.output.primary.isEmpty)
+                    .disabled(!model.isCopyEnabled)
                 }
-                if model.isLoading {
-                    ProgressView("Processing with DeepSeek…")
-                        .controlSize(.small)
-                        .foregroundStyle(muted)
-                } else {
+                if !model.output.primary.isEmpty {
                     Text(model.output.primary)
                         .font(.system(size: 17, weight: .regular))
                         .foregroundStyle(text)
                         .lineSpacing(7)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                if model.isLoading {
+                    ProgressView("Processing with DeepSeek…")
+                        .controlSize(.small)
+                        .foregroundStyle(muted)
                 }
             }
 
