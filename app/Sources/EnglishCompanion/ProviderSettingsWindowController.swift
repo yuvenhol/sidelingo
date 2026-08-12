@@ -12,6 +12,9 @@ private struct ProviderSettingsView: View {
             }
             TextField("Model", text: $model.model)
             SecureField("API key (leave blank to keep existing)", text: $model.apiKey)
+            Text("API key is stored unencrypted in local SQLite.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
             HStack {
                 if let statusMessage = model.statusMessage {
                     Text(statusMessage)
@@ -25,7 +28,7 @@ private struct ProviderSettingsView: View {
         }
         .formStyle(.grouped)
         .padding(8)
-        .frame(width: 440, height: 220)
+        .frame(width: 440, height: 245)
     }
 }
 
@@ -34,16 +37,14 @@ final class ProviderSettingsWindowController: NSWindowController, NSWindowDelega
     private let viewModel: ProviderSettingsViewModel
 
     init(
-        settingsRepository: any ProviderSettingsRepository,
         settingsService: ProviderSettingsService
     ) {
         viewModel = ProviderSettingsViewModel(
-            settingsRepository: settingsRepository,
             settingsService: settingsService
         )
         let hostingView = NSHostingView(rootView: ProviderSettingsView(model: viewModel))
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 440, height: 220),
+            contentRect: NSRect(x: 0, y: 0, width: 440, height: 245),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false

@@ -10,7 +10,8 @@ English Companion is a native macOS app with an AppKit shell and SwiftUI interfa
 - `Esc` hide and menu-bar lifecycle
 - Manual result copy
 - DeepSeek processing through SwiftOpenAI with the official `deepseek-v4-flash` default alias and a configurable model
-- DeepSeek model settings in UserDefaults and API key storage through KeychainAccess
+- DeepSeek provider, model and intentionally unencrypted API key storage in a dedicated `provider.sqlite`
+- Product-owned framed text parsing with cumulative streaming for every output field
 - SQLite UTF-8 history
 - Async Quick Panel loading, success, error and cancellation states
 
@@ -20,7 +21,7 @@ English Companion is a native macOS app with an AppKit shell and SwiftUI interfa
 swift test
 ```
 
-The current tests cover input-source decisions, stale clipboard rejection, Accessibility states, panel geometry, hotkey registration, the injected Keychain adapter, SQLite, provider configuration, strict provider output decoding and Quick Panel processing state.
+The current tests cover input-source decisions, stale clipboard rejection, Accessibility states, panel geometry, hotkey registration, SQLite provider/history storage, strict framed output parsing, provider configuration and Quick Panel processing state.
 
 ## Build
 
@@ -33,4 +34,4 @@ The local build requires the stable `English Companion Local Development` code-s
 
 ## Remaining gate
 
-Chrome selected-text capture through Accessibility is validated end to end. Preview PDF and Obsidian/Electron still need representative validation. The safe pasteboard fallback accepts only changed, stable text and rejects unchanged/conflicting reads. It deliberately does not restore the general pasteboard because macOS provides no atomic conditional write, so restoration could overwrite a concurrent user or clipboard-manager update. A real cross-application fallback E2E check is still required. Provider tests use injected fakes and do not make real network or Keychain calls.
+Chrome selected-text capture through Accessibility is validated end to end. Preview PDF and Obsidian/Electron still need representative validation. The safe pasteboard fallback accepts only changed, stable text and rejects unchanged/conflicting reads. It deliberately does not restore the general pasteboard because macOS provides no atomic conditional write, so restoration could overwrite a concurrent user or clipboard-manager update. A real cross-application fallback E2E check is still required. Provider tests use injected fakes, dummy strings and temporary SQLite files; they do not make real network calls or access real credentials.

@@ -178,7 +178,7 @@
 ## Provider 支持决定
 
 - MVP 同时支持 DeepSeek、豆包和 OpenAI。
-- 三者共用统一的请求/结构化响应抽象，但各自拥有 provider preset、模型配置和 Keychain 凭据。
+- 三者共用统一的请求/结构化响应抽象；App 当前只保存一行激活的 provider、模型和明文 API Key 配置。
 - 在三者都能通过相同契约完成 Translate 和 Improve 后，才执行质量盲测并选择默认模型。
 - 即使选出默认模型，也不删除另外两个 provider。
 
@@ -188,7 +188,7 @@
 - DeepSeek：尚未在 Hermes 环境检测到配置。
 - 豆包：尚未在 Hermes 环境检测到配置；执行时还需要确认 Ark API Key 和具体 endpoint/model ID。
 
-不要把 API Key 粘贴到聊天。应在本机凭据文件或未来 App 的 Keychain 设置中配置。
+不要把 API Key 粘贴到聊天。App 设置会把当前激活的 API Key 未加密地保存到本地 `provider.sqlite`，使用前必须接受这一明文静态存储风险。
 
 ## 预期交付物
 

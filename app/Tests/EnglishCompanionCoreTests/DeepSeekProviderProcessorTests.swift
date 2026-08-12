@@ -4,13 +4,20 @@ import XCTest
 @testable import EnglishCompanionCore
 
 final class DeepSeekProviderProcessorTests: XCTestCase {
-    func testStreamsSDKChunkDeltaContentUsingCustomModelAndJSONLPrompt() async throws {
+    private let primaryMarker = "<<<ENGLISH_COMPANION::PRIMARY>>>"
+    private let titleMarker = "<<<ENGLISH_COMPANION::SECONDARY_TITLE>>>"
+    private let secondaryMarker = "<<<ENGLISH_COMPANION::SECONDARY>>>"
+    private let endMarker = "<<<ENGLISH_COMPANION::END>>>"
+
+    func testStreamsEverySafeSDKChunkForAllFieldsUsingCustomModelAndFramedPrompt() async throws {
         let chunks = try [
-            makeChunk(content: #"{"field":"pri"#),
-            makeChunk(content: "mary\",\"value\":\"Natural English\"}\n"),
-            makeChunk(content: "{\"field\":\"secondaryTitle\",\"value\":\"MEANING CHECK\"}\n"),
+            makeChunk(content: "<<<ENGLISH_COMPANION::PRI"),
+            makeChunk(content: "MARY>>>\nNat"),
+            makeChunk(content: "ural English"),
+            makeChunk(content: "\n\(titleMarker)\nMEAN"),
+            makeChunk(content: "ING CHECK\n\(secondaryMarker)\n自然"),
             makeChunk(content: nil),
-            makeChunk(content: #"{"field":"secondary","value":"自然英文"}"#),
+            makeChunk(content: "英文\n\(endMarker)"),
         ]
         let service = FakeChatCompletionStreamingService(chunks: chunks)
         let processor = DeepSeekProviderProcessor(model: "deepseek-chat", streamingService: service)
@@ -21,10 +28,20 @@ final class DeepSeekProviderProcessorTests: XCTestCase {
         XCTAssertEqual(
             updates,
             [
+                CompanionOutputPartial(primary: "Nat"),
                 CompanionOutputPartial(primary: "Natural English"),
                 CompanionOutputPartial(
                     primary: "Natural English",
+                    secondaryTitle: "MEAN"
+                ),
+                CompanionOutputPartial(
+                    primary: "Natural English",
                     secondaryTitle: "MEANING CHECK"
+                ),
+                CompanionOutputPartial(
+                    primary: "Natural English",
+                    secondaryTitle: "MEANING CHECK",
+                    secondary: "自然"
                 ),
                 CompanionOutputPartial(
                     primary: "Natural English",
@@ -33,6 +50,7 @@ final class DeepSeekProviderProcessorTests: XCTestCase {
                 ),
             ]
         )
+        XCTAssertFalse(updates.description.contains("<<<ENGLISH_COMPANION::"))
         let streamCallCount = await service.streamCallCount()
         XCTAssertEqual(streamCallCount, 1)
 
@@ -47,22 +65,26 @@ final class DeepSeekProviderProcessorTests: XCTestCase {
         let messages = try XCTUnwrap(object["messages"] as? [[String: Any]])
         XCTAssertEqual(messages.map { $0["role"] as? String }, ["system", "user"])
         let systemPrompt = try XCTUnwrap(messages.first?["content"] as? String)
-        let primaryRecord = #"{"field":"primary","value":"..."}"#
-        let titleRecord = #"{"field":"secondaryTitle","value":"..."}"#
-        let secondaryRecord = #"{"field":"secondary","value":"..."}"#
-        XCTAssertTrue(systemPrompt.contains("JSONL"))
-        XCTAssertTrue(systemPrompt.contains(primaryRecord))
-        XCTAssertTrue(systemPrompt.contains(titleRecord))
-        XCTAssertTrue(systemPrompt.contains(secondaryRecord))
+        XCTAssertTrue(systemPrompt.contains(primaryMarker))
+        XCTAssertTrue(systemPrompt.contains(titleMarker))
+        XCTAssertTrue(systemPrompt.contains(secondaryMarker))
+        XCTAssertTrue(systemPrompt.contains(endMarker))
         XCTAssertLessThan(
-            try XCTUnwrap(systemPrompt.range(of: primaryRecord)?.lowerBound),
-            try XCTUnwrap(systemPrompt.range(of: titleRecord)?.lowerBound)
+            try XCTUnwrap(systemPrompt.range(of: primaryMarker)?.lowerBound),
+            try XCTUnwrap(systemPrompt.range(of: titleMarker)?.lowerBound)
         )
         XCTAssertLessThan(
-            try XCTUnwrap(systemPrompt.range(of: titleRecord)?.lowerBound),
-            try XCTUnwrap(systemPrompt.range(of: secondaryRecord)?.lowerBound)
+            try XCTUnwrap(systemPrompt.range(of: titleMarker)?.lowerBound),
+            try XCTUnwrap(systemPrompt.range(of: secondaryMarker)?.lowerBound)
+        )
+        XCTAssertLessThan(
+            try XCTUnwrap(systemPrompt.range(of: secondaryMarker)?.lowerBound),
+            try XCTUnwrap(systemPrompt.range(of: endMarker)?.lowerBound)
         )
         XCTAssertTrue(systemPrompt.lowercased().contains("no markdown"))
+        XCTAssertTrue(systemPrompt.lowercased().contains("strict order"))
+        XCTAssertTrue(systemPrompt.lowercased().contains("markers on their own lines"))
+        XCTAssertTrue(systemPrompt.lowercased().contains("must not contain marker text"))
         XCTAssertEqual(messages.last?["content"] as? String, "帮我确认一下。")
     }
 
@@ -82,9 +104,9 @@ final class DeepSeekProviderProcessorTests: XCTestCase {
         XCTAssertTrue(encoded.contains("technical identifiers"))
     }
 
-    func testInvalidCompletedJSONLIsAnInvalidProviderResponse() async throws {
+    func testMissingFinalFramedFieldsIsAnInvalidProviderResponse() async throws {
         let service = FakeChatCompletionStreamingService(
-            chunks: [try makeChunk(content: #"{"field":"primary","value":"only"}"#)]
+            chunks: [try makeChunk(content: "\(primaryMarker)\nonly")]
         )
         let processor = DeepSeekProviderProcessor(model: "deepseek-chat", streamingService: service)
 
@@ -109,9 +131,10 @@ final class DeepSeekProviderProcessorTests: XCTestCase {
 
     private func validChunks() throws -> [ChatCompletionChunkObject] {
         try [
-            makeChunk(content: "{\"field\":\"primary\",\"value\":\"Improved\"}\n"),
-            makeChunk(content: "{\"field\":\"secondaryTitle\",\"value\":\"CHANGES\"}\n"),
-            makeChunk(content: "{\"field\":\"secondary\",\"value\":\"Explanation\"}\n"),
+            makeChunk(content: "\(primaryMarker)\nImproved"),
+            makeChunk(content: "\n\(titleMarker)\nCHANGES"),
+            makeChunk(content: "\n\(secondaryMarker)\nExplanation"),
+            makeChunk(content: "\n\(endMarker)"),
         ]
     }
 

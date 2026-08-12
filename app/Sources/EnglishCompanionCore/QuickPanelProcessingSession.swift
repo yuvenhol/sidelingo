@@ -54,6 +54,9 @@ public final class QuickPanelProcessingSession: ObservableObject {
                 var finalPartial: CompanionOutputPartial?
                 for try await partial in stream {
                     guard let self, self.requestID == submittedRequestID else { return }
+                    guard !CompanionFramedProtocol.containsMarker(in: partial) else {
+                        throw ProviderProcessingError.invalidResponse
+                    }
                     finalPartial = partial
                     self.state = .streaming(partial)
                 }

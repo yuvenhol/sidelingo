@@ -13,10 +13,6 @@ let package = Package(
             url: "https://github.com/jamesrochabrun/SwiftOpenAI.git",
             exact: "4.5.1"
         ),
-        .package(
-            url: "https://github.com/kishikawakatsumi/KeychainAccess.git",
-            exact: "4.2.2"
-        ),
     ],
     targets: [
         .systemLibrary(name: "CSQLite", path: "Sources/CSQLite"),
@@ -25,7 +21,6 @@ let package = Package(
             dependencies: [
                 "CSQLite",
                 .product(name: "SwiftOpenAI", package: "SwiftOpenAI"),
-                .product(name: "KeychainAccess", package: "KeychainAccess"),
             ],
             linkerSettings: [
                 .linkedFramework("AppKit"),
@@ -42,7 +37,6 @@ let package = Package(
             dependencies: [
                 "EnglishCompanionCore",
                 .product(name: "SwiftOpenAI", package: "SwiftOpenAI"),
-                .product(name: "KeychainAccess", package: "KeychainAccess"),
             ]
         ),
     ]

@@ -80,7 +80,7 @@ v0.1 不做：
 4. **默认简短口语化。** 中文→英文适合 Slack/WhatsApp，不使用过度正式表达。
 5. **学习信息保持可见。** 优化结果同时展示原文、修改版和详细说明。
 6. **本地数据为主。** 历史、术语和复习数据以本地结构化数据库为事实来源。
-7. **云端调用透明。** 用户知道使用哪个 Provider，API Key 仅保存在 Keychain。
+7. **云端调用透明。** 用户知道使用哪个 Provider，并明确看到 API Key 以未加密明文保存在本地 SQLite 的提示。
 8. **不复制 Easydict 的复杂度。** 聚焦沟通、优化、查词和学习沉淀。
 
 ## 5. 信息架构
@@ -342,9 +342,9 @@ v0.1 同时支持：
 ### PR-03 BYOK
 
 - 用户填写自己的 API Key；
-- Key 存储在 macOS Keychain；
-- 不写入配置文件、日志、历史或导出文件；
-- 每个 Provider 独立保存凭据；
+- 当前激活的 Provider、模型和 Key 作为一行完整配置存储在独立的 `provider.sqlite`；
+- Key 明文且未加密，设置界面必须明确提示；
+- Key 不写入日志、历史或导出文件；
 - 支持配置模型名称或 Endpoint ID；
 - v0.1 不需要项目自建后端。
 
@@ -482,7 +482,8 @@ v0.1 设置至少包含：
 
 ## 16. 隐私与安全
 
-- API 凭据只进入 Keychain；
+- API 凭据只进入独立的 `provider.sqlite` 配置行，且不得进入 `history.sqlite`；
+- 用户已接受本地明文静态存储风险，UI 仍必须持续披露该风险；
 - 日志和错误中不得出现完整 Key；
 - 历史数据库默认只保存在本机；
 - 不自动同步工作消息；
@@ -555,7 +556,7 @@ v0.1 设置至少包含：
 
 - 历史默认保存且重启后仍存在；
 - 可逐条删除和全部清空；
-- Key 不出现在数据库和日志；
+- Key 只出现在独立的明文 `provider.sqlite`，不得出现在历史数据库和日志；
 - 自动术语可查看、编辑和删除。
 
 ### Provider
@@ -571,7 +572,7 @@ v0.1 设置至少包含：
 3. 跨应用选中文字；
 4. Raycast 风格浮层、输入焦点、结果展开和 Esc 行为；
 5. Quick Panel 到 Workspace Window 的无损切换；
-6. Keychain 读写；
+6. `provider.sqlite` 单行持久化、`0600` 权限、明文风险提示和错误不泄露 Key；
 7. 完整 ECDICT SQLite 体积、索引和查询性能；
 8. DeepSeek、豆包、OpenAI 结构化输出兼容性；
 9. 30 条真实匿名化消息的模型盲测；
@@ -590,7 +591,7 @@ v0.1 设置至少包含：
 ## 21. 下一阶段
 
 1. 冻结已通过稳定签名、全局快捷键和 Chrome Accessibility 选区验证的 Swift/AppKit 基线；
-2. 以统一 Provider 协议、Keychain 凭据和可测试 HTTP transport 接通第一条真实 BYOK 调用链；
+2. 以统一 Provider 协议、单行 SQLite 配置和可测试 HTTP transport 验证第一条 BYOK 调用链；
 3. 验证 Preview PDF、Obsidian/Electron 和真实安全 pasteboard fallback；
 4. 使用已批准的 SwiftUI design tokens 实现 Workspace、History 和 Review；
 5. 完成 ECDICT 数据、许可证和查询性能验证；

@@ -3,12 +3,10 @@ import XCTest
 
 final class ConfiguredProviderProcessorTests: XCTestCase {
     func testMissingSettingsReturnsConfigurationRequiredWithoutBuildingProvider() async {
-        let settings = ProcessorSettingsRepository(configuration: nil)
-        let credentials = ProcessorCredentialRepository(value: "unused")
+        let store = ProcessorSettingsStore(settings: nil)
         let factory = ProviderFactorySpy()
         let processor = ConfiguredProviderProcessor(
-            settingsRepository: settings,
-            credentialRepository: credentials,
+            settingsStore: store,
             makeProcessor: factory.make
         )
 
@@ -17,12 +15,16 @@ final class ConfiguredProviderProcessorTests: XCTestCase {
     }
 
     func testMissingOrBlankKeyReturnsConfigurationRequired() async {
-        let configuration = ProviderConfiguration(provider: .deepSeek, model: "deepseek-chat")
-        for key in [nil, "", "   "] {
+        for key in ["", "   "] {
             let factory = ProviderFactorySpy()
             let processor = ConfiguredProviderProcessor(
-                settingsRepository: ProcessorSettingsRepository(configuration: configuration),
-                credentialRepository: ProcessorCredentialRepository(value: key),
+                settingsStore: ProcessorSettingsStore(
+                    settings: ProviderSettings(
+                        provider: .deepSeek,
+                        model: "deepseek-chat",
+                        apiKey: key
+                    )
+                ),
                 makeProcessor: factory.make
             )
 
@@ -32,11 +34,16 @@ final class ConfiguredProviderProcessorTests: XCTestCase {
     }
 
     func testConfiguredRequestBuildsTheSupportedProvider() async throws {
-        let configuration = ProviderConfiguration(provider: .deepSeek, model: "selected-model")
+        let store = ProcessorSettingsStore(
+            settings: ProviderSettings(
+                provider: .deepSeek,
+                model: "selected-model",
+                apiKey: "dummy-stored-key"
+            )
+        )
         let factory = ProviderFactorySpy()
         let processor = ConfiguredProviderProcessor(
-            settingsRepository: ProcessorSettingsRepository(configuration: configuration),
-            credentialRepository: ProcessorCredentialRepository(value: "stored-key"),
+            settingsStore: store,
             makeProcessor: factory.make
         )
 
@@ -45,7 +52,9 @@ final class ConfiguredProviderProcessorTests: XCTestCase {
         XCTAssertEqual(output.primary, "processed")
         XCTAssertEqual(factory.providers, [.deepSeek])
         XCTAssertEqual(factory.models, ["selected-model"])
+        XCTAssertEqual(factory.apiKeys, ["dummy-stored-key"])
         XCTAssertEqual(factory.callCount, 1)
+        XCTAssertEqual(store.loadCallCount, 1)
     }
 
     private func assertConfigurationRequired(_ processor: ConfiguredProviderProcessor) async {
@@ -58,29 +67,31 @@ final class ConfiguredProviderProcessorTests: XCTestCase {
     }
 }
 
-private final class ProcessorSettingsRepository: @unchecked Sendable, ProviderSettingsRepository {
-    let configuration: ProviderConfiguration?
-    init(configuration: ProviderConfiguration?) { self.configuration = configuration }
-    func load() -> ProviderConfiguration? { configuration }
-    func save(_ configuration: ProviderConfiguration) {}
-}
+private final class ProcessorSettingsStore: @unchecked Sendable, ProviderSettingsStore {
+    let settings: ProviderSettings?
+    private(set) var loadCallCount = 0
 
-private final class ProcessorCredentialRepository: @unchecked Sendable, ProviderCredentialRepository {
-    let value: String?
-    init(value: String?) { self.value = value }
-    func credential(for provider: SupportedProvider) throws -> String? { value }
-    func setCredential(_ credential: String, for provider: SupportedProvider) throws {}
+    init(settings: ProviderSettings?) { self.settings = settings }
+
+    func load() throws -> ProviderSettings? {
+        loadCallCount += 1
+        return settings
+    }
+
+    func save(_ settings: ProviderSettings) throws {}
 }
 
 private final class ProviderFactorySpy: @unchecked Sendable {
     private(set) var callCount = 0
     private(set) var providers: [SupportedProvider] = []
     private(set) var models: [String] = []
+    private(set) var apiKeys: [String] = []
 
     func make(provider: SupportedProvider, apiKey: String, model: String) -> any ProviderStreaming {
         callCount += 1
         providers.append(provider)
         models.append(model)
+        apiKeys.append(apiKey)
         return SuccessfulProcessor()
     }
 }

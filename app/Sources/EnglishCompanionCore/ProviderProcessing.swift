@@ -115,7 +115,7 @@ public struct DeepSeekProviderProcessor: ProviderProcessing, ProviderStreaming {
         )
         return AsyncThrowingStream { continuation in
             let task = Task {
-                var parser = CompanionJSONLParser()
+                var parser = CompanionFramedParser()
                 var lastUpdate: CompanionOutputPartial?
                 do {
                     for try await chunk in source {
@@ -136,7 +136,7 @@ public struct DeepSeekProviderProcessor: ProviderProcessing, ProviderStreaming {
                         continuation.yield(complete)
                     }
                     continuation.finish()
-                } catch is CompanionJSONLParsingError {
+                } catch is CompanionFramedParsingError {
                     continuation.finish(throwing: ProviderProcessingError.invalidResponse)
                 } catch {
                     continuation.finish(throwing: error)
@@ -180,11 +180,17 @@ public struct DeepSeekProviderProcessor: ProviderProcessing, ProviderStreaming {
         }
         return """
         \(task)
-        Return exactly three JSONL records in this exact order, one record per line:
-        {"field":"primary","value":"..."}
-        {"field":"secondaryTitle","value":"..."}
-        {"field":"secondary","value":"..."}
-        Replace each ... with the requested string value. No markdown. Do not add commentary, blank records, or other fields.
+        Return exactly one framed text response using these markers in strict order, with the markers on their own lines:
+        \(CompanionFramedProtocol.primaryMarker)
+        <primary value>
+        \(CompanionFramedProtocol.secondaryTitleMarker)
+        <secondary title value>
+        \(CompanionFramedProtocol.secondaryMarker)
+        <secondary value>
+        \(CompanionFramedProtocol.endMarker)
+        Replace each angle-bracketed placeholder with the requested value. Put a line break immediately after each opening marker
+        and immediately before the next marker. Values must not contain marker text. No markdown, commentary, renamed markers,
+        repeated markers, omitted markers, text before the first marker, or non-whitespace text after the END marker.
         """
     }
 }
@@ -196,13 +202,11 @@ public final class ConfiguredProviderProcessor: ProviderProcessing, ProviderStre
         _ model: String
     ) -> any ProviderStreaming
 
-    private let settingsRepository: any ProviderSettingsRepository
-    private let credentialRepository: any ProviderCredentialRepository
+    private let settingsStore: any ProviderSettingsStore
     private let makeProcessor: ProcessorFactory
 
     public init(
-        settingsRepository: any ProviderSettingsRepository,
-        credentialRepository: any ProviderCredentialRepository,
+        settingsStore: any ProviderSettingsStore,
         makeProcessor: @escaping ProcessorFactory = { provider, apiKey, model in
             switch provider {
             case .deepSeek:
@@ -210,8 +214,7 @@ public final class ConfiguredProviderProcessor: ProviderProcessing, ProviderStre
             }
         }
     ) {
-        self.settingsRepository = settingsRepository
-        self.credentialRepository = credentialRepository
+        self.settingsStore = settingsStore
         self.makeProcessor = makeProcessor
     }
 
@@ -223,16 +226,15 @@ public final class ConfiguredProviderProcessor: ProviderProcessing, ProviderStre
         mode: CompanionMode,
         text: String
     ) async throws -> AsyncThrowingStream<CompanionOutputPartial, Error> {
-        guard let configuration = settingsRepository.load(),
-              !configuration.model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              let apiKey = try credentialRepository.credential(for: configuration.provider),
-              !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        guard let settings = try settingsStore.load(),
+              !settings.model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !settings.apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw ProviderProcessingError.configurationRequired
         }
         return try await makeProcessor(
-            configuration.provider,
-            apiKey,
-            configuration.model
+            settings.provider,
+            settings.apiKey,
+            settings.model
         ).stream(mode: mode, text: text)
     }
 }

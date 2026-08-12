@@ -9,11 +9,14 @@ public final class ProviderSettingsViewModel: ObservableObject {
 
     private let settingsService: ProviderSettingsService
 
-    public init(
-        settingsRepository: any ProviderSettingsRepository,
-        settingsService: ProviderSettingsService
-    ) {
-        model = settingsRepository.load()?.model ?? ProviderPreset.defaultModel(for: .deepSeek)
+    public init(settingsService: ProviderSettingsService) {
+        do {
+            model = try settingsService.load()?.model ?? ProviderPreset.defaultModel(for: .deepSeek)
+            statusMessage = nil
+        } catch {
+            model = ProviderPreset.defaultModel(for: .deepSeek)
+            statusMessage = "Could not load provider settings."
+        }
         self.settingsService = settingsService
     }
 
@@ -36,16 +39,13 @@ public final class ProviderSettingsViewModel: ObservableObject {
             return
         }
         do {
-            try settingsService.save(
-                ProviderConfiguration(provider: .deepSeek, model: selectedModel),
-                apiKey: submittedAPIKey
-            )
+            try settingsService.save(provider: .deepSeek, model: selectedModel, apiKey: submittedAPIKey)
             model = selectedModel
             statusMessage = "DeepSeek settings saved."
         } catch ProviderSettingsError.apiKeyRequired {
             statusMessage = "Enter a DeepSeek API key before saving."
         } catch {
-            statusMessage = "Could not save the API key."
+            statusMessage = "Could not save provider settings."
         }
     }
 }

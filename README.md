@@ -9,7 +9,7 @@ English Companion 是一款轻量、键盘优先的 macOS 中英沟通与学习�
 - SwiftUI Quick Panel 已运行；Workspace、History 和 Review 待实现。
 - 稳定本地签名、系统级快捷键和 Chrome Accessibility 真实选区链路已验证。
 - 安全 pasteboard fallback 已完成单元测试：只接受变化后稳定的新文本，拒绝 unchanged/conflict；为避免 TOCTOU 覆盖风险，不自动恢复 general pasteboard。Preview PDF、Obsidian/Electron 和真实 fallback E2E 仍待验证。
-- 当前处理器仍是 Mock；下一条正式开发链路是真实 BYOK Provider。
+- 当前已接通 DeepSeek BYOK 流式处理；Provider 测试使用假数据，不发出真实网络请求。
 
 ## Project structure
 
@@ -29,7 +29,7 @@ English Companion 是一款轻量、键盘优先的 macOS 中英沟通与学习�
 - 优化支持英文、中文和中英混杂内容。
 - 完整 ECDICT SQLite 随 App 发布并离线可用。
 - DeepSeek、豆包和 OpenAI 使用统一 BYOK Provider 接口。
-- API Key 保存到 macOS Keychain。
+- 当前 Provider、模型和 API Key 作为单行配置保存在独立的本地 `provider.sqlite`；API Key 明文且未加密。
 - 历史、术语和学习数据保存在本地 SQLite。
 - 不使用有道 API，不自动覆盖用户剪贴板。
 
@@ -45,6 +45,8 @@ open -n "dist/English Companion.app"
 ## Next
 
 1. 冻结当前已验证 Swift/AppKit 基线。
-2. 用统一 Provider 协议、Keychain 凭据和可测试 HTTP transport 接通第一条真实 BYOK 调用链。
+2. 继续验证产品自有分帧协议在真实匿名化请求中的流式质量，不在测试或文档中使用真实凭据。
 3. 验证 Preview PDF、Obsidian/Electron 和真实安全 pasteboard fallback。
 4. 使用已批准的 SwiftUI design tokens 实现 Workspace、History 和 Review。
+
+架构决策见 [`ADR-001`](docs/decisions/001-framed-streaming-and-plaintext-provider-sqlite.md)。

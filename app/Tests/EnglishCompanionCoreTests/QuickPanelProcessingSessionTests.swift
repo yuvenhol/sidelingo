@@ -18,6 +18,9 @@ final class QuickPanelProcessingSessionTests: XCTestCase {
         XCTAssertFalse(session.isCopyEnabled)
         await processor.waitUntilStarted(text: "source")
 
+        let primaryStart = CompanionOutputPartial(primary: "Ready")
+        await processor.yield(primaryStart, text: "source")
+        await waitUntil { session.state == .streaming(primaryStart) }
         let primary = CompanionOutputPartial(primary: "Ready immediately")
         await processor.yield(primary, text: "source")
         await waitUntil { session.state == .streaming(primary) }
@@ -25,6 +28,12 @@ final class QuickPanelProcessingSessionTests: XCTestCase {
         XCTAssertFalse(session.isCopyEnabled)
         XCTAssertTrue(history.records.isEmpty)
 
+        let titleStart = CompanionOutputPartial(
+            primary: "Ready immediately",
+            secondaryTitle: "MEANING"
+        )
+        await processor.yield(titleStart, text: "source")
+        await waitUntil { session.state == .streaming(titleStart) }
         let title = CompanionOutputPartial(
             primary: "Ready immediately",
             secondaryTitle: "MEANING CHECK"
@@ -32,6 +41,13 @@ final class QuickPanelProcessingSessionTests: XCTestCase {
         await processor.yield(title, text: "source")
         await waitUntil { session.state == .streaming(title) }
 
+        let secondaryStart = CompanionOutputPartial(
+            primary: "Ready immediately",
+            secondaryTitle: "MEANING CHECK",
+            secondary: "忠实"
+        )
+        await processor.yield(secondaryStart, text: "source")
+        await waitUntil { session.state == .streaming(secondaryStart) }
         let complete = CompanionOutputPartial(
             primary: "Ready immediately",
             secondaryTitle: "MEANING CHECK",
@@ -54,6 +70,27 @@ final class QuickPanelProcessingSessionTests: XCTestCase {
         XCTAssertTrue(session.isCopyEnabled)
         XCTAssertEqual(history.records.map(\.result), ["Ready immediately"])
         XCTAssertEqual(history.records.map(\.source), ["source"])
+    }
+
+    func testProtocolMarkerBearingPartialNeverReachesUIState() async {
+        let processor = ControlledStreamingProcessor()
+        let session = QuickPanelProcessingSession(processor: processor)
+        let rawMarker = "<<<ENGLISH_COMPANION::PRIMARY>>>"
+
+        session.submit(mode: .translate, text: "unsafe framing")
+        await processor.waitUntilStarted(text: "unsafe framing")
+        await processor.yield(
+            CompanionOutputPartial(primary: "visible \(rawMarker) raw"),
+            text: "unsafe framing"
+        )
+        await waitUntil {
+            if case .error = session.state { return true }
+            return false
+        }
+
+        XCTAssertFalse(String(describing: session.state).contains(rawMarker))
+        XCTAssertEqual(session.state, .error("DeepSeek returned an invalid response."))
+        XCTAssertFalse(session.isCopyEnabled)
     }
 
     func testFailureAfterAPartialResultRecordsNoHistory() async {

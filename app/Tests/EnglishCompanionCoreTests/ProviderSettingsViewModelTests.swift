@@ -4,28 +4,35 @@ import XCTest
 @MainActor
 final class ProviderSettingsViewModelTests: XCTestCase {
     func testNewSettingsDefaultToLatestDeepSeekFlashAlias() {
-        let settings = SettingsRepositorySpy()
-        let credentials = FailingCredentialRepository()
+        let store = ProviderSettingsStoreSpy()
         let viewModel = ProviderSettingsViewModel(
-            settingsRepository: settings,
-            settingsService: ProviderSettingsService(
-                settingsRepository: settings,
-                credentialRepository: credentials
-            )
+            settingsService: ProviderSettingsService(store: store)
         )
 
         XCTAssertEqual(viewModel.model, "deepseek-v4-flash")
     }
 
-    func testDismissClearsTransientAPIKeyAndStatus() {
-        let settings = SettingsRepositorySpy()
-        let credentials = FailingCredentialRepository()
-        let viewModel = ProviderSettingsViewModel(
-            settingsRepository: settings,
-            settingsService: ProviderSettingsService(
-                settingsRepository: settings,
-                credentialRepository: credentials
+    func testExistingSettingsLoadStoredModelWithoutLoadingKeyIntoSecureField() {
+        let store = ProviderSettingsStoreSpy(
+            settings: ProviderSettings(
+                provider: .deepSeek,
+                model: "stored-model",
+                apiKey: "dummy-stored-key"
             )
+        )
+
+        let viewModel = ProviderSettingsViewModel(
+            settingsService: ProviderSettingsService(store: store)
+        )
+
+        XCTAssertEqual(viewModel.model, "stored-model")
+        XCTAssertEqual(viewModel.apiKey, "")
+    }
+
+    func testDismissClearsTransientAPIKeyAndStatus() {
+        let store = ProviderSettingsStoreSpy()
+        let viewModel = ProviderSettingsViewModel(
+            settingsService: ProviderSettingsService(store: store)
         )
         viewModel.apiKey = "transient-test-value"
         viewModel.statusMessage = "temporary status"
@@ -37,14 +44,10 @@ final class ProviderSettingsViewModelTests: XCTestCase {
     }
 
     func testFailedSaveClearsTransientAPIKeyAndDoesNotSaveSettings() {
-        let settings = SettingsRepositorySpy()
-        let credentials = FailingCredentialRepository()
+        let store = ProviderSettingsStoreSpy()
+        store.saveError = TestProviderSettingsError.unavailable
         let viewModel = ProviderSettingsViewModel(
-            settingsRepository: settings,
-            settingsService: ProviderSettingsService(
-                settingsRepository: settings,
-                credentialRepository: credentials
-            )
+            settingsService: ProviderSettingsService(store: store)
         )
         viewModel.model = "deepseek-chat"
         viewModel.apiKey = "transient-test-value"
@@ -52,26 +55,54 @@ final class ProviderSettingsViewModelTests: XCTestCase {
         viewModel.save()
 
         XCTAssertEqual(viewModel.apiKey, "")
-        XCTAssertEqual(viewModel.statusMessage, "Could not save the API key.")
-        XCTAssertNil(settings.load())
+        XCTAssertEqual(viewModel.statusMessage, "Could not save provider settings.")
+        XCTAssertEqual(store.savedValues, [])
+    }
+
+    func testSuccessfulSaveClearsTransientAPIKey() {
+        let store = ProviderSettingsStoreSpy()
+        let viewModel = ProviderSettingsViewModel(
+            settingsService: ProviderSettingsService(store: store)
+        )
+        viewModel.model = "deepseek-chat"
+        viewModel.apiKey = "dummy-new-key"
+
+        viewModel.save()
+
+        XCTAssertEqual(viewModel.apiKey, "")
+        XCTAssertEqual(viewModel.statusMessage, "DeepSeek settings saved.")
+        XCTAssertEqual(store.savedValues.last?.apiKey, "dummy-new-key")
+    }
+
+    func testModelValidationFailureClearsTransientAPIKey() {
+        let store = ProviderSettingsStoreSpy()
+        let viewModel = ProviderSettingsViewModel(
+            settingsService: ProviderSettingsService(store: store)
+        )
+        viewModel.model = "  "
+        viewModel.apiKey = "dummy-transient-key"
+
+        viewModel.save()
+
+        XCTAssertEqual(viewModel.apiKey, "")
+        XCTAssertEqual(viewModel.statusMessage, "Model is required.")
+        XCTAssertEqual(store.savedValues, [])
+    }
+
+    func testPrepareForPresentationClearsTransientAPIKeyAndStatus() {
+        let viewModel = ProviderSettingsViewModel(
+            settingsService: ProviderSettingsService(store: ProviderSettingsStoreSpy())
+        )
+        viewModel.apiKey = "dummy-transient-key"
+        viewModel.statusMessage = "temporary"
+
+        viewModel.prepareForPresentation()
+
+        XCTAssertEqual(viewModel.apiKey, "")
+        XCTAssertNil(viewModel.statusMessage)
     }
 }
 
-private enum TestCredentialError: Error {
+private enum TestProviderSettingsError: Error {
     case unavailable
-}
-
-private final class SettingsRepositorySpy: @unchecked Sendable, ProviderSettingsRepository {
-    private var configuration: ProviderConfiguration?
-
-    func load() -> ProviderConfiguration? { configuration }
-    func save(_ configuration: ProviderConfiguration) { self.configuration = configuration }
-}
-
-private final class FailingCredentialRepository: @unchecked Sendable, ProviderCredentialRepository {
-    func credential(for provider: SupportedProvider) throws -> String? { nil }
-
-    func setCredential(_ credential: String, for provider: SupportedProvider) throws {
-        throw TestCredentialError.unavailable
-    }
 }

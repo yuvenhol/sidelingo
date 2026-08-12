@@ -13,8 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pasteboard: SystemPasteboardAccess(),
         sendCopy: { CopyCommandSender().send() }
     )
-    private let providerSettings = UserDefaultsProviderSettingsRepository()
-    private let providerCredentials = KeychainCredentialStore(service: "dev.kris.english-companion")
+    private var providerSettings: SQLiteProviderStore?
     private var quickPanel: QuickPanelController!
     private var settingsWindow: ProviderSettingsWindowController!
     private var hotKeys: GlobalHotKeyMonitor?
@@ -23,20 +22,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.mainMenu = ApplicationMenuFactory.makeMainMenu(applicationName: "English Companion")
         NSApp.setActivationPolicy(.accessory)
+        guard let providerSettings = try? makeProviderSettingsStore() else {
+            logger.fault("Provider settings database is unavailable.")
+            NSApp.terminate(nil)
+            return
+        }
+        self.providerSettings = providerSettings
         let processor = ConfiguredProviderProcessor(
-            settingsRepository: providerSettings,
-            credentialRepository: providerCredentials
+            settingsStore: providerSettings
         )
         quickPanel = QuickPanelController(
             processor: processor,
             historyStore: makeHistoryStore()
         )
         settingsWindow = ProviderSettingsWindowController(
-            settingsRepository: providerSettings,
-            settingsService: ProviderSettingsService(
-                settingsRepository: providerSettings,
-                credentialRepository: providerCredentials
-            )
+            settingsService: ProviderSettingsService(store: providerSettings)
         )
         installStatusItem()
         installHotKeys()
@@ -160,5 +160,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         let directory = support.appendingPathComponent("EnglishCompanion", isDirectory: true)
         return try? SQLiteHistoryStore(path: directory.appendingPathComponent("history.sqlite").path)
+    }
+
+    private func makeProviderSettingsStore() throws -> SQLiteProviderStore {
+        guard let support = FileManager.default.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first else {
+            throw SQLiteProviderStoreError("application support unavailable")
+        }
+        let directory = support.appendingPathComponent("EnglishCompanion", isDirectory: true)
+        return try SQLiteProviderStore(
+            path: directory.appendingPathComponent("provider.sqlite").path
+        )
     }
 }

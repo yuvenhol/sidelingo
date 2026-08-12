@@ -10,7 +10,7 @@ AppKit shell
 ├── global hotkeys
 ├── Accessibility selected text
 ├── pasteboard fallback
-├── Keychain
+├── Application Support storage
 └── app lifecycle
 
 SwiftUI presentation via NSHostingView
@@ -23,6 +23,7 @@ Swift core
 ├── translate / improve workflows
 ├── provider abstraction
 ├── SQLite history and learning data
+├── separate SQLite provider settings with an unencrypted API key
 ├── ECDICT lookup
 └── export
 ```
@@ -44,9 +45,9 @@ Swift core
 - Chrome real selected-text capture through Accessibility.
 - Stable local code-signing requirement across rebuilds.
 - DeepSeek-only provider slice with fixed `https://api.deepseek.com`, official `deepseek-v4-flash` default alias, and configurable model.
-- SwiftOpenAI `startStreamedChat(parameters:)` handling with ordered JSONL deltas, strict product-owned incremental parsing, and typed partial UI updates.
-- KeychainAccess credential adapter covered through an injected test backend.
-- UserDefaults stores only provider and model settings.
+- SwiftOpenAI 4.5.1 `startStreamedChat(parameters:)` handling through `CancellationSafeHTTPClient` and redirect rejection.
+- A strict product-owned framed text response with ordered `PRIMARY`, `SECONDARY_TITLE`, `SECONDARY`, and `END` markers; all three typed fields publish cumulative safe partials.
+- A single complete provider/model/API-key row in `Application Support/EnglishCompanion/provider.sqlite`, separate from `history.sqlite`; the API key is intentionally plaintext and the database uses `0600` where supported.
 - SQLite UTF-8 history round trip.
 - Pasteboard change detection and conflict rejection in unit tests; fallback never restores the general pasteboard because macOS exposes no atomic conditional write.
 - `Esc` hides the panel without quitting the app.
@@ -69,6 +70,9 @@ The implemented pasteboard fallback still needs real cross-application E2E verif
 
 - No WebView or browser runtime.
 - No automatic clipboard overwrite.
-- API keys live in macOS Keychain.
+- The settings UI must disclose that the API key is stored unencrypted in local SQLite.
+- Provider settings load and save as one complete value; a blank key preserves an existing key but cannot create the first row.
 - History, learning data and ECDICT stay local.
 - The current provider slice exposes only DeepSeek; later providers can share the same provider contract after evaluation.
+
+See [ADR-001](decisions/001-framed-streaming-and-plaintext-provider-sqlite.md) for the wire and storage decisions.
