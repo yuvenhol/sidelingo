@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <title>English Companion — Interaction Prototype</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <main class="desktop" aria-label="English Companion interaction prototype">
+    <div class="ambient ambient-a"></div>
+    <div class="ambient ambient-b"></div>
+    <header class="prototype-label">
+      <span class="prototype-dot"></span>
+      INTERACTION PROTOTYPE
+      <span class="prototype-separator">/</span>
+      LOCAL FIXTURES ONLY
+    </header>
+
+    <section id="quickPanel" class="quick-panel" aria-label="English Companion quick panel">
+      <div class="input-shell">
+        <div id="modeIcon" class="mode-icon translate" aria-hidden="true">译</div>
+        <textarea id="sourceInput" rows="1" spellcheck="false" aria-label="Input text">这个方案我需要再看一下，晚点回复你。</textarea>
+        <button id="runButton" class="run-button" type="button">
+          <span>Run</span><kbd>⌘↵</kbd>
+        </button>
+      </div>
+
+      <div id="resultRegion" class="result-region" aria-live="polite"></div>
+
+      <footer class="status-bar">
+        <div class="status-left">
+          <span id="modeStatus" class="status-pill accent">Translate</span>
+          <span id="sourceStatus" class="status-pill">Selection</span>
+          <span id="providerStatus" class="status-pill"><span class="provider-dot openai"></span>OpenAI</span>
+        </div>
+        <div class="status-actions">
+          <button id="quickReview" class="status-action review-entry" type="button"><span class="review-dot"></span> Review <span class="review-count">17</span></button>
+          <button id="openWorkspace" class="status-action" type="button"><kbd>⌘O</kbd> Open in Window</button>
+          <span class="status-hint"><kbd>Esc</kbd> Hide</span>
+        </div>
+      </footer>
+    </section>
+
+    <nav class="scenario-dock" aria-label="Prototype scenarios">
+      <div class="dock-title">Preview states</div>
+      <button data-scenario="zh-en" class="scenario active"><span>中→EN</span><kbd>1</kbd></button>
+      <button data-scenario="en-zh" class="scenario"><span>EN→中</span><kbd>2</kbd></button>
+      <button data-scenario="improve-en" class="scenario"><span>Improve EN</span><kbd>3</kbd></button>
+      <button data-scenario="improve-mixed" class="scenario"><span>Mixed</span><kbd>4</kbd></button>
+      <button data-scenario="dictionary" class="scenario"><span>Dictionary</span><kbd>5</kbd></button>
+      <span class="dock-divider"></span>
+      <button id="reviewButton" class="scenario review-dock"><span>Review</span><strong>17</strong></button>
+      <button id="settingsButton" class="scenario icon-only" aria-label="Settings"><span>⚙</span></button>
+    </nav>
+
+    <aside class="shortcut-guide" aria-label="Shortcut simulation">
+      <button id="translateShortcut" type="button"><kbd>⌥T</kbd><span>Translate shortcut</span></button>
+      <button id="improveShortcut" type="button"><kbd>⌥I</kbd><span>Improve shortcut</span></button>
+    </aside>
+  </main>
+
+  <section id="workspace" class="workspace" aria-hidden="true">
+    <div class="workspace-window">
+      <header class="workspace-titlebar">
+        <div class="traffic-lights" aria-hidden="true"><i></i><i></i><i></i></div>
+        <div class="workspace-title">English Companion</div>
+        <button id="closeWorkspace" type="button" class="ghost-button"><kbd>Esc</kbd> Close</button>
+      </header>
+      <div class="workspace-body">
+        <aside class="workspace-sidebar">
+          <div class="sidebar-brand"><span class="brand-mark">E</span><strong>Companion</strong></div>
+          <nav>
+            <button class="sidebar-item active" data-workspace-view="current">Current task <kbd>⌘1</kbd></button>
+            <button class="sidebar-item" data-workspace-view="history">History <span class="count">128</span></button>
+            <button class="sidebar-item" data-workspace-view="glossary">Glossary <span class="count">42</span></button>
+            <button class="sidebar-item" data-workspace-view="review">Saved for review <span class="count">17</span></button>
+          </nav>
+          <div class="sidebar-footer">Local database<br><span>Last saved just now</span></div>
+        </aside>
+        <section class="workspace-content">
+          <div class="workspace-heading">
+            <div><div class="eyebrow">CURRENT TASK</div><h1 id="workspaceHeading">Translate</h1></div>
+            <div id="workspaceControls" class="workspace-controls"><button class="secondary-button">Export</button><button class="primary-button">Copy result</button></div>
+          </div>
+          <div id="workspaceResult" class="workspace-result"></div>
+        </section>
+      </div>
+    </div>
+  </section>
+
+  <dialog id="settingsDialog" class="settings-dialog">
+    <form method="dialog">
+      <header><div><div class="eyebrow">SETTINGS</div><h2>Providers & shortcuts</h2></div><button class="close-dialog" value="cancel" aria-label="Close">×</button></header>
+      <div class="settings-grid">
+        <section>
+          <h3>Global shortcuts</h3>
+          <label>Translate <button type="button" class="shortcut-recorder">⌥ T</button></label>
+          <label>Improve <button type="button" class="shortcut-recorder">⌥ I</button></label>
+        </section>
+        <section>
+          <h3>Model providers</h3>
+          <div class="provider-row selected"><span class="provider-logo openai">O</span><div><strong>OpenAI</strong><small>Connected · Keychain</small></div><span class="radio checked"></span></div>
+          <div class="provider-row"><span class="provider-logo deepseek">D</span><div><strong>DeepSeek</strong><small>Not configured</small></div><span class="radio"></span></div>
+          <div class="provider-row"><span class="provider-logo doubao">豆</span><div><strong>Doubao / Ark</strong><small>Not configured</small></div><span class="radio"></span></div>
+        </section>
+      </div>
+      <footer><span>API keys are stored in macOS Keychain.</span><button value="default" class="primary-button">Done</button></footer>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status">Copied</div>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
