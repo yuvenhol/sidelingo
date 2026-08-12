@@ -8,16 +8,29 @@ let package = Package(
         .library(name: "EnglishCompanionCore", targets: ["EnglishCompanionCore"]),
         .executable(name: "EnglishCompanion", targets: ["EnglishCompanion"]),
     ],
+    dependencies: [
+        .package(
+            url: "https://github.com/jamesrochabrun/SwiftOpenAI.git",
+            exact: "4.5.1"
+        ),
+        .package(
+            url: "https://github.com/kishikawakatsumi/KeychainAccess.git",
+            exact: "4.2.2"
+        ),
+    ],
     targets: [
         .systemLibrary(name: "CSQLite", path: "Sources/CSQLite"),
         .target(
             name: "EnglishCompanionCore",
-            dependencies: ["CSQLite"],
+            dependencies: [
+                "CSQLite",
+                .product(name: "SwiftOpenAI", package: "SwiftOpenAI"),
+                .product(name: "KeychainAccess", package: "KeychainAccess"),
+            ],
             linkerSettings: [
                 .linkedFramework("AppKit"),
                 .linkedFramework("ApplicationServices"),
                 .linkedFramework("Carbon"),
-                .linkedFramework("Security"),
             ]
         ),
         .executableTarget(
@@ -26,7 +39,11 @@ let package = Package(
         ),
         .testTarget(
             name: "EnglishCompanionCoreTests",
-            dependencies: ["EnglishCompanionCore"]
+            dependencies: [
+                "EnglishCompanionCore",
+                .product(name: "SwiftOpenAI", package: "SwiftOpenAI"),
+                .product(name: "KeychainAccess", package: "KeychainAccess"),
+            ]
         ),
     ]
 )

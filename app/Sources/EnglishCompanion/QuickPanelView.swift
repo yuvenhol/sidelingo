@@ -62,6 +62,7 @@ struct QuickPanelView: View {
             TextEditor(text: $model.input)
                 .font(.system(size: 20, weight: .regular))
                 .foregroundStyle(text)
+                .disabled(model.isLoading)
                 .scrollContentBackground(.hidden)
                 .background(.clear)
                 .frame(height: 58)
@@ -69,13 +70,14 @@ struct QuickPanelView: View {
 
             Button(action: { model.onRun?() }) {
                 HStack(spacing: 8) {
-                    Text("Run")
+                    Text(model.isLoading ? "Running…" : "Run")
                     keycap("⌘↵")
                 }
                 .frame(height: 34)
                 .padding(.horizontal, 11)
             }
             .buttonStyle(PanelButtonStyle(accent: true))
+            .disabled(model.isLoading)
             .keyboardShortcut(.return, modifiers: .command)
             .padding(.top, 2)
         }
@@ -102,12 +104,19 @@ struct QuickPanelView: View {
                         .frame(height: 28)
                     }
                     .buttonStyle(PanelButtonStyle())
+                    .disabled(model.isLoading || model.output.primary.isEmpty)
                 }
-                Text(model.output.primary)
-                    .font(.system(size: 17, weight: .regular))
-                    .foregroundStyle(text)
-                    .lineSpacing(7)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                if model.isLoading {
+                    ProgressView("Processing with DeepSeek…")
+                        .controlSize(.small)
+                        .foregroundStyle(muted)
+                } else {
+                    Text(model.output.primary)
+                        .font(.system(size: 17, weight: .regular))
+                        .foregroundStyle(text)
+                        .lineSpacing(7)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
 
             divider
@@ -140,7 +149,7 @@ struct QuickPanelView: View {
             statusPill(model.source)
             HStack(spacing: 6) {
                 Circle().fill(green).frame(width: 6, height: 6)
-                Text("OpenAI")
+                Text("DeepSeek")
             }
             .font(.system(size: 11, weight: .semibold))
             .foregroundStyle(muted)
@@ -162,8 +171,10 @@ struct QuickPanelView: View {
     }
 
     private var primaryTitle: String {
-        if model.unavailableMessage != nil { return "INPUT REQUIRED" }
-        return model.mode == .translate ? "ENGLISH · READY TO SEND" : "IMPROVED · READY TO SEND"
+        QuickPanelResultPresentation.primaryTitle(
+            mode: model.mode,
+            inputUnavailable: model.unavailableMessage != nil
+        )
     }
 
     private var divider: some View {
@@ -180,6 +191,7 @@ struct QuickPanelView: View {
     private func actionChip(_ title: String) -> some View {
         Button(title) { model.onPlaceholderAction?() }
             .buttonStyle(ChipButtonStyle())
+            .disabled(model.isLoading || model.output.primary.isEmpty)
     }
 
     private func statusPill(_ title: String, accent isAccent: Bool = false) -> some View {

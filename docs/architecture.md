@@ -43,7 +43,10 @@ Swift core
 - Explicit Accessibility permission/no-selection outcomes.
 - Chrome real selected-text capture through Accessibility.
 - Stable local code-signing requirement across rebuilds.
-- Keychain round trip.
+- DeepSeek-only provider slice with a fixed `https://api.deepseek.com` preset and configurable model.
+- SwiftOpenAI request/response handling with JSON mode and strict product-owned output decoding.
+- KeychainAccess credential adapter covered through an injected test backend.
+- UserDefaults stores only provider and model settings.
 - SQLite UTF-8 history round trip.
 - Pasteboard change detection and conflict rejection in unit tests; fallback never restores the general pasteboard because macOS exposes no atomic conditional write.
 - `Esc` hides the panel without quitting the app.
@@ -68,4 +71,4 @@ The implemented pasteboard fallback still needs real cross-application E2E verif
 - No automatic clipboard overwrite.
 - API keys live in macOS Keychain.
 - History, learning data and ECDICT stay local.
-- DeepSeek, Doubao/Ark and OpenAI share one provider contract.
+- The current provider slice exposes only DeepSeek; later providers can share the same provider contract after evaluation.

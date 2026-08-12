@@ -13,13 +13,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pasteboard: SystemPasteboardAccess(),
         sendCopy: { CopyCommandSender().send() }
     )
+    private let providerSettings = UserDefaultsProviderSettingsRepository()
+    private let providerCredentials = KeychainCredentialStore(service: "dev.kris.english-companion")
     private var quickPanel: QuickPanelController!
+    private var settingsWindow: ProviderSettingsWindowController!
     private var hotKeys: GlobalHotKeyMonitor?
     private var statusItem: NSStatusItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
-        quickPanel = QuickPanelController(historyStore: makeHistoryStore())
+        let processor = ConfiguredProviderProcessor(
+            settingsRepository: providerSettings,
+            credentialRepository: providerCredentials
+        )
+        quickPanel = QuickPanelController(
+            processor: processor,
+            historyStore: makeHistoryStore()
+        )
+        settingsWindow = ProviderSettingsWindowController(
+            settingsRepository: providerSettings,
+            settingsService: ProviderSettingsService(
+                settingsRepository: providerSettings,
+                credentialRepository: providerCredentials
+            )
+        )
         installStatusItem()
         installHotKeys()
         if permissionManager.requestIfNeeded() != .granted {
@@ -47,6 +64,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if permissionManager.requestIfNeeded() != .granted {
             quickPanel.showUnavailable(mode: .translate, reason: .permissionRequired)
         }
+    }
+
+    @objc private func openSettings() {
+        settingsWindow.present()
     }
 
     private func invoke(_ mode: CompanionMode) {
@@ -123,6 +144,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         menu.addItem(withTitle: "Translate", action: #selector(invokeTranslate), keyEquivalent: "")
         menu.addItem(withTitle: "Improve", action: #selector(invokeImprove), keyEquivalent: "")
+        menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
         menu.addItem(withTitle: "Enable Accessibility…", action: #selector(enableAccessibility), keyEquivalent: "")
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit", action: #selector(quit), keyEquivalent: "q")

@@ -1,74 +1,55 @@
-import Foundation
-import Security
+import KeychainAccess
 
-public enum KeychainStoreError: Error, Equatable {
-    case encodingFailed
-    case unexpectedStatus(OSStatus)
-    case invalidData
+public protocol KeychainValueStoring: AnyObject {
+    func set(_ value: String, key: String) throws
+    func get(_ key: String) throws -> String?
+    func remove(_ key: String) throws
 }
 
-public final class KeychainCredentialStore: @unchecked Sendable {
-    private let service: String
+private final class KeychainAccessStore: KeychainValueStoring {
+    private let keychain: Keychain
 
-    public init(service: String) {
-        self.service = service
+    init(service: String, accessibility: Accessibility) {
+        keychain = Keychain(service: service).accessibility(accessibility)
     }
 
-    public func set(_ secret: String, account: String) throws {
-        guard let data = secret.data(using: .utf8) else {
-            throw KeychainStoreError.encodingFailed
-        }
-
-        let key = baseQuery(account: account)
-        let update: [String: Any] = [
-            kSecValueData as String: data,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
-        ]
-        let status = SecItemUpdate(key as CFDictionary, update as CFDictionary)
-        if status == errSecItemNotFound {
-            var add = key
-            update.forEach { add[$0.key] = $0.value }
-            let addStatus = SecItemAdd(add as CFDictionary, nil)
-            guard addStatus == errSecSuccess else {
-                throw KeychainStoreError.unexpectedStatus(addStatus)
-            }
-            return
-        }
-        guard status == errSecSuccess else {
-            throw KeychainStoreError.unexpectedStatus(status)
-        }
+    func set(_ value: String, key: String) throws {
+        try keychain.set(value, key: key)
     }
 
-    public func get(account: String) throws -> String? {
-        var query = baseQuery(account: account)
-        query[kSecReturnData as String] = true
-        query[kSecMatchLimit as String] = kSecMatchLimitOne
-
-        var item: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &item)
-        if status == errSecItemNotFound { return nil }
-        guard status == errSecSuccess else {
-            throw KeychainStoreError.unexpectedStatus(status)
-        }
-        guard let data = item as? Data,
-              let value = String(data: data, encoding: .utf8) else {
-            throw KeychainStoreError.invalidData
-        }
-        return value
+    func get(_ key: String) throws -> String? {
+        try keychain.get(key)
     }
 
-    public func delete(account: String) throws {
-        let status = SecItemDelete(baseQuery(account: account) as CFDictionary)
-        guard status == errSecSuccess || status == errSecItemNotFound else {
-            throw KeychainStoreError.unexpectedStatus(status)
+    func remove(_ key: String) throws {
+        try keychain.remove(key)
+    }
+}
+
+public final class KeychainCredentialStore: ProviderCredentialRepository, @unchecked Sendable {
+    public typealias StoreFactory = (String, Accessibility) -> any KeychainValueStoring
+
+    private let store: any KeychainValueStoring
+
+    public convenience init(service: String) {
+        self.init(service: service) { service, accessibility in
+            KeychainAccessStore(service: service, accessibility: accessibility)
         }
     }
 
-    private func baseQuery(account: String) -> [String: Any] {
-        [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-        ]
+    public init(service: String, makeStore: StoreFactory) {
+        store = makeStore(service, .afterFirstUnlockThisDeviceOnly)
+    }
+
+    public func credential(for provider: SupportedProvider) throws -> String? {
+        try store.get(provider.rawValue)
+    }
+
+    public func setCredential(_ credential: String, for provider: SupportedProvider) throws {
+        try store.set(credential, key: provider.rawValue)
+    }
+
+    public func deleteCredential(for provider: SupportedProvider) throws {
+        try store.remove(provider.rawValue)
     }
 }
