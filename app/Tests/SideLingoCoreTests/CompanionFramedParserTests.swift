@@ -2,10 +2,10 @@ import XCTest
 @testable import SideLingoCore
 
 final class CompanionFramedParserTests: XCTestCase {
-    private let primaryMarker = "<<<SIDELINGO::PRIMARY>>>"
-    private let titleMarker = "<<<SIDELINGO::SECONDARY_TITLE>>>"
-    private let secondaryMarker = "<<<SIDELINGO::SECONDARY>>>"
-    private let endMarker = "<<<SIDELINGO::END>>>"
+    private let primaryMarker = CompanionFramedProtocol.primaryMarker
+    private let titleMarker = CompanionFramedProtocol.secondaryTitleMarker
+    private let secondaryMarker = CompanionFramedProtocol.secondaryMarker
+    private let endMarker = CompanionFramedProtocol.endMarker
 
     func testStreamsAllFieldsAcrossArbitraryMarkerBoundariesWithUTF8AndCRLF() throws {
         var parser = CompanionFramedParser()

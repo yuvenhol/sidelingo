@@ -4,12 +4,9 @@ import XCTest
 
 final class ApplicationSupportMigratorTests: XCTestCase {
     func testRemovesStaleStagingWhenLegacyDirectoryNoLongerExists() throws {
-        let root = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: root) }
+        let root = try makeTemporaryRoot()
 
-        let canonical = root.appendingPathComponent("SideLingo", isDirectory: true)
+        let canonical = canonicalDirectory(in: root)
         try FileManager.default.createDirectory(at: canonical, withIntermediateDirectories: true)
         let staging = canonical.appendingPathComponent(".provider.sqlite.sidelingo-migration")
         try write("stale-main", to: staging)
@@ -22,32 +19,26 @@ final class ApplicationSupportMigratorTests: XCTestCase {
     }
 
     func testMovesLegacyDirectoryWhenCanonicalDirectoryDoesNotExist() throws {
-        let root = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: root) }
+        let root = try makeTemporaryRoot()
 
-        let legacy = root.appendingPathComponent("EnglishCompanion", isDirectory: true)
+        let legacy = legacyDirectory(in: root)
         try FileManager.default.createDirectory(at: legacy, withIntermediateDirectories: true)
         try Data("history".utf8).write(to: legacy.appendingPathComponent("history.sqlite"))
         try Data("keep".utf8).write(to: legacy.appendingPathComponent("notes.txt"))
 
         try ApplicationSupportMigrator().migrate(in: root)
 
-        let canonical = root.appendingPathComponent("SideLingo", isDirectory: true)
+        let canonical = canonicalDirectory(in: root)
         XCTAssertFalse(FileManager.default.fileExists(atPath: legacy.path))
         XCTAssertEqual(try Data(contentsOf: canonical.appendingPathComponent("history.sqlite")), Data("history".utf8))
         XCTAssertEqual(try Data(contentsOf: canonical.appendingPathComponent("notes.txt")), Data("keep".utf8))
     }
 
     func testBacksUpMissingDatabaseWithoutOverwritingCurrentDatabaseOrCopyingSidecars() throws {
-        let root = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: root) }
+        let root = try makeTemporaryRoot()
 
-        let legacy = root.appendingPathComponent("EnglishCompanion", isDirectory: true)
-        let canonical = root.appendingPathComponent("SideLingo", isDirectory: true)
+        let legacy = legacyDirectory(in: root)
+        let canonical = canonicalDirectory(in: root)
         try FileManager.default.createDirectory(at: legacy, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: canonical, withIntermediateDirectories: true)
 
@@ -118,13 +109,10 @@ final class ApplicationSupportMigratorTests: XCTestCase {
     }
 
     func testBackupFailureRemovesCanonicalFragmentsAndRetryPreservesLegacyFamily() throws {
-        let root = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: root) }
+        let root = try makeTemporaryRoot()
 
-        let legacy = root.appendingPathComponent("EnglishCompanion", isDirectory: true)
-        let canonical = root.appendingPathComponent("SideLingo", isDirectory: true)
+        let legacy = legacyDirectory(in: root)
+        let canonical = canonicalDirectory(in: root)
         try FileManager.default.createDirectory(at: legacy, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: canonical, withIntermediateDirectories: true)
         let familyNames = [
@@ -139,7 +127,7 @@ final class ApplicationSupportMigratorTests: XCTestCase {
 
         var attemptedDestination: URL?
         var destinationPermissionsAtBackupStart: Int?
-        let failingMigrator = ApplicationSupportMigrator { _, destination in
+        let failingMigrator = ApplicationSupportMigrator(backupDatabase: { _, destination in
             attemptedDestination = destination
             let attributes = try? FileManager.default.attributesOfItem(atPath: destination.path)
             destinationPermissionsAtBackupStart = (attributes?[.posixPermissions] as? NSNumber)?.intValue
@@ -148,7 +136,7 @@ final class ApplicationSupportMigratorTests: XCTestCase {
                 to: URL(fileURLWithPath: destination.path + "-journal")
             )
             throw InjectedBackupError.failed
-        }
+        })
 
         XCTAssertThrowsError(try failingMigrator.migrate(in: root))
         XCTAssertEqual(destinationPermissionsAtBackupStart.map { $0 & 0o777 }, 0o600)
@@ -168,9 +156,9 @@ final class ApplicationSupportMigratorTests: XCTestCase {
             to: URL(fileURLWithPath: stagingDatabase.path + "-journal")
         )
 
-        let retryingMigrator = ApplicationSupportMigrator { source, destination in
+        let retryingMigrator = ApplicationSupportMigrator(backupDatabase: { source, destination in
             try Data(contentsOf: source).write(to: destination)
-        }
+        })
         try retryingMigrator.migrate(in: root)
 
         XCTAssertFalse(FileManager.default.fileExists(atPath: stagingDatabase.path))
@@ -190,22 +178,19 @@ final class ApplicationSupportMigratorTests: XCTestCase {
     }
 
     func testMigrationIsIdempotentAfterPartialMerge() throws {
-        let root = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: root) }
+        let root = try makeTemporaryRoot()
 
-        let legacy = root.appendingPathComponent("EnglishCompanion", isDirectory: true)
-        let canonical = root.appendingPathComponent("SideLingo", isDirectory: true)
+        let legacy = legacyDirectory(in: root)
+        let canonical = canonicalDirectory(in: root)
         try FileManager.default.createDirectory(at: legacy, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: canonical, withIntermediateDirectories: true)
         try write("legacy-history", to: legacy.appendingPathComponent("history.sqlite"))
         try write("legacy-provider", to: legacy.appendingPathComponent("provider.sqlite"))
         try write("current-provider", to: canonical.appendingPathComponent("provider.sqlite"))
 
-        let migrator = ApplicationSupportMigrator { source, destination in
+        let migrator = ApplicationSupportMigrator(backupDatabase: { source, destination in
             try Data(contentsOf: source).write(to: destination)
-        }
+        })
         try migrator.migrate(in: root)
         try migrator.migrate(in: root)
 
@@ -216,13 +201,10 @@ final class ApplicationSupportMigratorTests: XCTestCase {
     }
 
     func testRejectsCanonicalOrphanSidecarWithoutMovingLegacyDatabaseFamily() throws {
-        let root = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: root) }
+        let root = try makeTemporaryRoot()
 
-        let legacy = root.appendingPathComponent("EnglishCompanion", isDirectory: true)
-        let canonical = root.appendingPathComponent("SideLingo", isDirectory: true)
+        let legacy = legacyDirectory(in: root)
+        let canonical = canonicalDirectory(in: root)
         try FileManager.default.createDirectory(at: legacy, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: canonical, withIntermediateDirectories: true)
         try write("legacy-history", to: legacy.appendingPathComponent("history.sqlite"))
@@ -240,13 +222,10 @@ final class ApplicationSupportMigratorTests: XCTestCase {
     }
 
     func testPropagatesMigrationFailureWithoutRemovingLegacyFile() throws {
-        let root = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: root) }
+        let root = try makeTemporaryRoot()
 
-        let legacy = root.appendingPathComponent("EnglishCompanion", isDirectory: true)
-        let canonical = root.appendingPathComponent("SideLingo")
+        let legacy = legacyDirectory(in: root)
+        let canonical = canonicalDirectory(in: root)
         try FileManager.default.createDirectory(at: legacy, withIntermediateDirectories: true)
         try write("legacy-history", to: legacy.appendingPathComponent("history.sqlite"))
         try write("not-a-directory", to: canonical)
@@ -259,6 +238,30 @@ final class ApplicationSupportMigratorTests: XCTestCase {
         }
         XCTAssertEqual(try text(at: legacy.appendingPathComponent("history.sqlite")), "legacy-history")
         XCTAssertEqual(try text(at: canonical), "not-a-directory")
+    }
+
+    private func legacyDirectory(in root: URL) -> URL {
+        root.appendingPathComponent(
+            ApplicationSupportMigrator.legacyDirectoryName,
+            isDirectory: true
+        )
+    }
+
+    private func canonicalDirectory(in root: URL) -> URL {
+        root.appendingPathComponent(
+            SideLingoIdentity.applicationSupportDirectoryName,
+            isDirectory: true
+        )
+    }
+
+    private func makeTemporaryRoot() throws -> URL {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: root)
+        }
+        return root
     }
 
     private func write(_ value: String, to url: URL) throws {

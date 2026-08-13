@@ -18,10 +18,14 @@ public struct CompanionOutputPartial: Equatable, Sendable {
 
 public enum CompanionFramedProtocol {
     public static let markerPrefix = "<<<SIDELINGO::"
-    public static let primaryMarker = "<<<SIDELINGO::PRIMARY>>>"
-    public static let secondaryTitleMarker = "<<<SIDELINGO::SECONDARY_TITLE>>>"
-    public static let secondaryMarker = "<<<SIDELINGO::SECONDARY>>>"
-    public static let endMarker = "<<<SIDELINGO::END>>>"
+    public static let primaryMarker = marker("PRIMARY")
+    public static let secondaryTitleMarker = marker("SECONDARY_TITLE")
+    public static let secondaryMarker = marker("SECONDARY")
+    public static let endMarker = marker("END")
+
+    private static func marker(_ field: String) -> String {
+        "\(markerPrefix)\(field)>>>"
+    }
 
     public static func containsMarker(in partial: CompanionOutputPartial) -> Bool {
         [partial.primary, partial.secondaryTitle, partial.secondary]

@@ -75,7 +75,7 @@ final class QuickPanelProcessingSessionTests: XCTestCase {
     func testProtocolMarkerBearingPartialNeverReachesUIState() async {
         let processor = ControlledStreamingProcessor()
         let session = QuickPanelProcessingSession(processor: processor)
-        let rawMarker = "<<<SIDELINGO::PRIMARY>>>"
+        let rawMarker = CompanionFramedProtocol.primaryMarker
 
         session.submit(mode: .translate, text: "unsafe framing")
         await processor.waitUntilStarted(text: "unsafe framing")

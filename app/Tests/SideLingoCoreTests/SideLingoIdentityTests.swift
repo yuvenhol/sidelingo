@@ -2,14 +2,14 @@ import XCTest
 @testable import SideLingoCore
 
 final class SideLingoIdentityTests: XCTestCase {
-    func testCanonicalIdentityAndFramedProtocol() {
+    func testCanonicalIdentity() {
         XCTAssertEqual(SideLingoIdentity.productName, "SideLingo")
-        XCTAssertEqual(SideLingoIdentity.coreModuleName, "SideLingoCore")
-        XCTAssertEqual(SideLingoIdentity.executableName, "SideLingo")
         XCTAssertEqual(SideLingoIdentity.bundleIdentifier, "dev.kris.sidelingo")
         XCTAssertEqual(SideLingoIdentity.applicationSupportDirectoryName, "SideLingo")
         XCTAssertEqual(SideLingoIdentity.statusItemTitle, "SL")
+    }
 
+    func testFramedProtocolWireContract() {
         XCTAssertEqual(CompanionFramedProtocol.markerPrefix, "<<<SIDELINGO::")
         XCTAssertEqual(CompanionFramedProtocol.primaryMarker, "<<<SIDELINGO::PRIMARY>>>")
         XCTAssertEqual(

@@ -34,10 +34,6 @@ public struct ApplicationSupportMigrator {
         self.backupDatabase = backupDatabase
     }
 
-    init(_ backupDatabase: @escaping DatabaseBackup) {
-        self.init(fileManager: .default, backupDatabase: backupDatabase)
-    }
-
     public func migrate(in applicationSupportDirectory: URL) throws {
         let legacyDirectory = applicationSupportDirectory.appendingPathComponent(
             Self.legacyDirectoryName,
@@ -79,7 +75,7 @@ public struct ApplicationSupportMigrator {
         }
 
         for databaseName in Self.managedSQLiteDatabaseNames {
-            let stagingDatabaseName = ".\(databaseName).sidelingo-migration"
+            let stagingDatabaseName = Self.stagingDatabaseName(for: databaseName)
             let sourceDatabase = legacyDirectory.appendingPathComponent(databaseName)
             let destinationDatabase = canonicalDirectory.appendingPathComponent(databaseName)
             guard fileManager.fileExists(atPath: sourceDatabase.path),
@@ -87,9 +83,10 @@ public struct ApplicationSupportMigrator {
                 continue
             }
 
-            let destinationFamily = Self.sqliteFamilySuffixes.map {
-                canonicalDirectory.appendingPathComponent(databaseName + $0)
-            }
+            let destinationFamily = Self.databaseFamilyURLs(
+                named: databaseName,
+                in: canonicalDirectory
+            )
             if destinationFamily.contains(where: { fileManager.fileExists(atPath: $0.path) }) {
                 throw ApplicationSupportMigrationError.canonicalDatabaseFamilyConflict
             }
@@ -133,18 +130,27 @@ public struct ApplicationSupportMigrator {
         }
     }
 
+    private static func stagingDatabaseName(for databaseName: String) -> String {
+        ".\(databaseName).sidelingo-migration"
+    }
+
+    private static func databaseFamilyURLs(named databaseName: String, in directory: URL) -> [URL] {
+        sqliteFamilySuffixes.map {
+            directory.appendingPathComponent(databaseName + $0)
+        }
+    }
+
     private func removeStagingFamilies(from directory: URL) throws {
         for databaseName in Self.managedSQLiteDatabaseNames {
             try removeDatabaseFamily(
-                named: ".\(databaseName).sidelingo-migration",
+                named: Self.stagingDatabaseName(for: databaseName),
                 from: directory
             )
         }
     }
 
     private func removeDatabaseFamily(named databaseName: String, from directory: URL) throws {
-        for suffix in Self.sqliteFamilySuffixes {
-            let member = directory.appendingPathComponent(databaseName + suffix)
+        for member in Self.databaseFamilyURLs(named: databaseName, in: directory) {
             if fileManager.fileExists(atPath: member.path) {
                 try fileManager.removeItem(at: member)
             }
@@ -152,8 +158,7 @@ public struct ApplicationSupportMigrator {
     }
 
     private func removeDatabaseSidecars(named databaseName: String, from directory: URL) throws {
-        for suffix in Self.sqliteFamilySuffixes where !suffix.isEmpty {
-            let member = directory.appendingPathComponent(databaseName + suffix)
+        for member in Self.databaseFamilyURLs(named: databaseName, in: directory).dropFirst() {
             if fileManager.fileExists(atPath: member.path) {
                 try fileManager.removeItem(at: member)
             }

@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  swift:
+    name: Swift tests
+    runs-on: macos-15
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Swift tests
+        run: swift test --disable-sandbox
+
+  prototype:
+    name: Prototype tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run model tests
+        run: node --test prototype/tests/app-model.test.mjs
+      - name: Check JavaScript syntax
+        run: |
+          node --check prototype/app.js
+          node --check prototype/app-model.mjs
