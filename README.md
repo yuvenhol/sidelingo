@@ -1,15 +1,16 @@
-# English Companion
+# SideLingo
 
-English Companion 是一款轻量、键盘优先的 macOS 中英沟通与学习助手，服务香港职场沟通：快速翻译、表达优化、离线查词，以及从真实工作内容中沉淀可复习的学习数据。
+SideLingo 是一款轻量、键盘优先的 macOS 中英沟通与学习助手，服务香港职场沟通：快速翻译、表达优化、离线查词，以及从真实工作内容中沉淀可复习的学习数据。
 
 ## Current status
 
 - 产品范围与 Quick Panel 视觉方向已确认。
 - 当前实现采用 **AppKit shell + SwiftUI UI**，无 WebView。
 - SwiftUI Quick Panel 已运行；Workspace、History 和 Review 待实现。
-- 稳定本地签名、系统级快捷键和 Chrome Accessibility 真实选区链路已验证。
+- 新 Bundle ID 为 `dev.kris.sidelingo`；macOS 不会继承旧应用的 Accessibility 授权，首次安装 SideLingo 后需要重新授权并刷新一次跨应用选区 E2E。
 - 安全 pasteboard fallback 已完成单元测试：只接受变化后稳定的新文本，拒绝 unchanged/conflict；为避免 TOCTOU 覆盖风险，不自动恢复 general pasteboard。Preview PDF、Obsidian/Electron 和真实 fallback E2E 仍待验证。
 - 当前已接通 DeepSeek BYOK 流式处理；Provider 测试使用假数据，不发出真实网络请求。
+- 应用数据规范目录为 `Application Support/SideLingo`；启动时会在打开 SQLite 前安全迁移旧目录中的受管数据库文件。
 
 ## Project structure
 
@@ -39,7 +40,7 @@ English Companion 是一款轻量、键盘优先的 macOS 中英沟通与学习�
 cd app
 swift test
 ./build-app.sh
-open -n "dist/English Companion.app"
+open -n "dist/SideLingo.app"
 ```
 
 ## Next

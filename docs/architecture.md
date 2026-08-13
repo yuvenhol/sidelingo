@@ -2,7 +2,7 @@
 
 ## Current decision
 
-English Companion is a native macOS app with no WebView.
+SideLingo is a native macOS app with no WebView.
 
 ```text
 AppKit shell
@@ -47,7 +47,8 @@ Swift core
 - DeepSeek-only provider slice with fixed `https://api.deepseek.com`, official `deepseek-v4-flash` default alias, and configurable model.
 - SwiftOpenAI 4.5.1 `startStreamedChat(parameters:)` handling through `CancellationSafeHTTPClient` and redirect rejection.
 - A strict product-owned framed text response with ordered `PRIMARY`, `SECONDARY_TITLE`, `SECONDARY`, and `END` markers; all three typed fields publish cumulative safe partials.
-- A single complete provider/model/API-key row in `Application Support/EnglishCompanion/provider.sqlite`, separate from `history.sqlite`; the API key is intentionally plaintext and the database uses `0600` where supported.
+- A single complete provider/model/API-key row in `Application Support/SideLingo/provider.sqlite`, separate from `history.sqlite`; the API key is intentionally plaintext and the database uses `0600` where supported.
+- A startup migration runs before either SQLite store opens. `Application Support/EnglishCompanion` is recognized only as the legacy compatibility source: the whole directory moves atomically when the canonical directory is absent; when both directories exist, each missing current database is copied through SQLite's online-backup API into a hidden staging file and atomically renamed only after a complete close and `0600` permission update. SQLite resolves WAL and rollback-journal state itself; failed or interrupted staging artifacts are removed before retry, current databases are never overwritten, and the legacy database remains as rollback evidence.
 - SQLite UTF-8 history round trip.
 - Pasteboard change detection and conflict rejection in unit tests; fallback never restores the general pasteboard because macOS exposes no atomic conditional write.
 - `Esc` hides the panel without quitting the app.

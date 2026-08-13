@@ -1,6 +1,6 @@
-# macOS App
+# SideLingo macOS App
 
-English Companion is a native macOS app with an AppKit shell and SwiftUI interface hosted through `NSHostingView`. It contains no WebView.
+SideLingo is a native macOS app with an AppKit shell and SwiftUI interface hosted through `NSHostingView`. It contains no WebView.
 
 ## Implemented
 
@@ -13,6 +13,7 @@ English Companion is a native macOS app with an AppKit shell and SwiftUI interfa
 - DeepSeek provider, model and intentionally unencrypted API key storage in a dedicated `provider.sqlite`
 - Product-owned framed text parsing with cumulative streaming for every output field
 - SQLite UTF-8 history
+- Pre-SQLite migration into `Application Support/SideLingo`: atomic whole-directory move when possible, otherwise a staged SQLite online backup that never overwrites a current database
 - Async Quick Panel loading, success, error and cancellation states
 
 ## Test
@@ -27,11 +28,11 @@ The current tests cover input-source decisions, stale clipboard rejection, Acces
 
 ```bash
 ./build-app.sh
-open -n "dist/English Companion.app"
+open -n "dist/SideLingo.app"
 ```
 
-The local build requires the stable `English Companion Local Development` code-signing identity and uses bundle identifier `dev.kris.english-companion`. It deliberately refuses to fall back to ad-hoc signing because that invalidates Accessibility authorization across rebuilds.
+The local build uses `SIDELINGO_SIGNING_IDENTITY`, defaulting to the stable `SideLingo Local Development` code-signing identity, and bundle identifier `dev.kris.sidelingo`. It deliberately refuses to fall back to ad-hoc signing because that invalidates Accessibility authorization across rebuilds. `./build-app.sh --install` installs to `~/Applications/SideLingo.app`.
 
 ## Remaining gate
 
-Chrome selected-text capture through Accessibility is validated end to end. Preview PDF and Obsidian/Electron still need representative validation. The safe pasteboard fallback accepts only changed, stable text and rejects unchanged/conflicting reads. It deliberately does not restore the general pasteboard because macOS provides no atomic conditional write, so restoration could overwrite a concurrent user or clipboard-manager update. A real cross-application fallback E2E check is still required. Provider tests use injected fakes, dummy strings and temporary SQLite files; they do not make real network calls or access real credentials.
+Chrome selected-text capture through Accessibility was validated on the predecessor app identity. Because SideLingo uses the new bundle identifier `dev.kris.sidelingo`, macOS does not transfer the old Accessibility grant; the first SideLingo installation requires one authorization and a fresh representative E2E check. Preview PDF and Obsidian/Electron still need representative validation. The safe pasteboard fallback accepts only changed, stable text and rejects unchanged/conflicting reads. It deliberately does not restore the general pasteboard because macOS provides no atomic conditional write, so restoration could overwrite a concurrent user or clipboard-manager update. A real cross-application fallback E2E check is still required. Provider tests use injected fakes, dummy strings and temporary SQLite files; they do not make real network calls or access real credentials.

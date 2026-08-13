@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
-APP="$ROOT/dist/English Companion.app"
-SIGNING_IDENTITY="${ENGLISH_COMPANION_SIGNING_IDENTITY:-English Companion Local Development}"
+APP="$ROOT/dist/SideLingo.app"
+SIGNING_IDENTITY="${SIDELINGO_SIGNING_IDENTITY:-SideLingo Local Development}"
 
 cd "$ROOT"
 
@@ -16,12 +16,12 @@ fi
 swift build -c release
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$ROOT/.build/release/EnglishCompanion" "$APP/Contents/MacOS/EnglishCompanion"
+cp "$ROOT/.build/release/SideLingo" "$APP/Contents/MacOS/SideLingo"
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
 codesign --force --sign "$SIGNING_IDENTITY" --timestamp=none "$APP"
 
 if [[ "${1:-}" == "--install" ]]; then
-  DESTINATION="$HOME/Applications/English Companion.app"
+  DESTINATION="$HOME/Applications/SideLingo.app"
   mkdir -p "$HOME/Applications"
   rm -rf "$DESTINATION"
   ditto "$APP" "$DESTINATION"

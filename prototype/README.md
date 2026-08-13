@@ -1,6 +1,6 @@
 # Interaction Prototype
 
-这是 English Companion 已批准的交互与视觉参考，不是生产代码。
+这是 SideLingo 已批准的交互与视觉参考，不是生产代码。
 
 ## Run
 

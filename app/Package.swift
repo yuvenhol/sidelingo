@@ -2,11 +2,11 @@
 import PackageDescription
 
 let package = Package(
-    name: "EnglishCompanion",
+    name: "SideLingo",
     platforms: [.macOS(.v13)],
     products: [
-        .library(name: "EnglishCompanionCore", targets: ["EnglishCompanionCore"]),
-        .executable(name: "EnglishCompanion", targets: ["EnglishCompanion"]),
+        .library(name: "SideLingoCore", targets: ["SideLingoCore"]),
+        .executable(name: "SideLingo", targets: ["SideLingo"]),
     ],
     dependencies: [
         .package(
@@ -17,7 +17,7 @@ let package = Package(
     targets: [
         .systemLibrary(name: "CSQLite", path: "Sources/CSQLite"),
         .target(
-            name: "EnglishCompanionCore",
+            name: "SideLingoCore",
             dependencies: [
                 "CSQLite",
                 .product(name: "SwiftOpenAI", package: "SwiftOpenAI"),
@@ -29,13 +29,13 @@ let package = Package(
             ]
         ),
         .executableTarget(
-            name: "EnglishCompanion",
-            dependencies: ["EnglishCompanionCore"]
+            name: "SideLingo",
+            dependencies: ["SideLingoCore"]
         ),
         .testTarget(
-            name: "EnglishCompanionCoreTests",
+            name: "SideLingoCoreTests",
             dependencies: [
-                "EnglishCompanionCore",
+                "SideLingoCore",
                 .product(name: "SwiftOpenAI", package: "SwiftOpenAI"),
             ]
         ),

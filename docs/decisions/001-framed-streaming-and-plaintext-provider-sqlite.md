@@ -17,18 +17,20 @@ The Quick Panel must visibly stream `primary`, `secondaryTitle`, and `secondary`
 Provider output uses these uncommon product-owned markers, each on its own line and in strict order:
 
 ```text
-<<<ENGLISH_COMPANION::PRIMARY>>>
+<<<SIDELINGO::PRIMARY>>>
 <primary value>
-<<<ENGLISH_COMPANION::SECONDARY_TITLE>>>
+<<<SIDELINGO::SECONDARY_TITLE>>>
 <secondary title value>
-<<<ENGLISH_COMPANION::SECONDARY>>>
+<<<SIDELINGO::SECONDARY>>>
 <secondary value>
-<<<ENGLISH_COMPANION::END>>>
+<<<SIDELINGO::END>>>
 ```
 
 Values cannot contain marker text. The incremental parser retains only a possible marker-prefix suffix, emits cumulative typed partials for safe content, and rejects missing, duplicate, unknown, out-of-order, or trailing framing. The UI rejects marker-bearing typed partials as a second boundary.
 
-The app stores exactly one active provider row—`provider`, `model`, and plaintext `api_key`—in `Application Support/EnglishCompanion/provider.sqlite`. This file is separate from `history.sqlite` and uses POSIX mode `0600` where supported. A blank submitted key preserves the existing row's key; it cannot create the first row. The app does not read, migrate, or delete credentials from any previous storage mechanism.
+The app stores exactly one active provider row—`provider`, `model`, and plaintext `api_key`—in `Application Support/SideLingo/provider.sqlite`. This file is separate from `history.sqlite` and uses POSIX mode `0600` where supported. A blank submitted key preserves the existing row's key; it cannot create the first row.
+
+Before opening either SQLite store, startup recognizes `Application Support/EnglishCompanion` only as a legacy migration source. If `SideLingo` does not exist, the legacy directory moves atomically. If both directories exist, each missing `history.sqlite` or `provider.sqlite` is copied through SQLite's online-backup API into a hidden staging database. SQLite resolves committed WAL content and hot rollback journals while producing the consistent snapshot; SideLingo sets the staging database to `0600` and atomically renames it to the final path only after backup and close succeed. Failed or interrupted staging families—including `-wal`, `-shm`, and `-journal`—are removed before a retry. Existing current databases are never overwritten, unknown legacy files remain in place, and the legacy database remains available as rollback evidence. Any backup or cleanup failure prevents provider startup without logging stored values.
 
 ## Alternatives considered
 
@@ -42,5 +44,6 @@ The app stores exactly one active provider row—`provider`, `model`, and plaint
 - All three output fields can visibly update on safe model chunks.
 - Protocol markers are part of the prompt and parser contract and must change together.
 - Provider settings have one throwable load/save boundary, preventing mixed model/key snapshots.
+- Application Support migration is idempotent and must complete before either database is opened.
 - The API key is recoverable from the SQLite file by any process able to read it; the settings UI must state this plainly.
 - Tests use only dummy strings and temporary SQLite files and require no real credential or network access.

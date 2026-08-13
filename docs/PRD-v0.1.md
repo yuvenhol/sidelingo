@@ -1,4 +1,4 @@
-# English Companion v0.1 产品需求文档（PRD）
+# SideLingo v0.1 产品需求文档（PRD）
 
 - **版本：** v0.1 Draft
 - **日期：** 2026-08-11
@@ -14,7 +14,7 @@
 
 ## 1. 产品概述
 
-English Companion 是一款轻量、键盘优先的 macOS 中英沟通与学习助手。核心交互不是传统应用窗口，而是类似 Raycast 的无标题栏输入浮层：快捷键唤起、输入或接收选中文字、结果向下展开、按 `Esc` 消失。
+SideLingo 是一款轻量、键盘优先的 macOS 中英沟通与学习助手。核心交互不是传统应用窗口，而是类似 Raycast 的无标题栏输入浮层：快捷键唤起、输入或接收选中文字、结果向下展开、按 `Esc` 消失。
 
 “轻量”指交互简单、运行时开销低、无浏览器运行时和空闲时低资源占用；由于完整 ECDICT 随 App 发布，安装包不以极小体积为第一目标。
 
@@ -342,7 +342,7 @@ v0.1 同时支持：
 ### PR-03 BYOK
 
 - 用户填写自己的 API Key；
-- 当前激活的 Provider、模型和 Key 作为一行完整配置存储在独立的 `provider.sqlite`；
+- 当前激活的 Provider、模型和 Key 作为一行完整配置存储在 `Application Support/SideLingo/provider.sqlite`；
 - Key 明文且未加密，设置界面必须明确提示；
 - Key 不写入日志、历史或导出文件；
 - 支持配置模型名称或 Endpoint ID；
@@ -483,6 +483,7 @@ v0.1 设置至少包含：
 ## 16. 隐私与安全
 
 - API 凭据只进入独立的 `provider.sqlite` 配置行，且不得进入 `history.sqlite`；
+- 在打开任一 SQLite 前完成旧 Application Support 数据的幂等迁移；不得覆盖当前数据库。若 SideLingo 目录尚不存在，可原子移动整个旧目录（包括其中未知文件）；若新旧目录并存，只通过 SQLite online backup 迁移缺失的受管数据库，不移动未知旧文件；
 - 用户已接受本地明文静态存储风险，UI 仍必须持续披露该风险；
 - 日志和错误中不得出现完整 Key；
 - 历史数据库默认只保存在本机；
@@ -555,6 +556,7 @@ v0.1 设置至少包含：
 ### 数据
 
 - 历史默认保存且重启后仍存在；
+- 历史与 Provider 数据的规范目录为 `Application Support/SideLingo`；
 - 可逐条删除和全部清空；
 - Key 只出现在独立的明文 `provider.sqlite`，不得出现在历史数据库和日志；
 - 自动术语可查看、编辑和删除。
