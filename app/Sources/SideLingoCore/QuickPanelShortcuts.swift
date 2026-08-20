@@ -1,3 +1,5 @@
+import AppKit
+
 public struct KeyboardShortcutDescriptor: Equatable, Sendable {
     public let key: Character
     public let usesCommandModifier: Bool
@@ -6,6 +8,11 @@ public struct KeyboardShortcutDescriptor: Equatable, Sendable {
         self.key = key
         self.usesCommandModifier = usesCommandModifier
     }
+}
+
+public enum QuickPanelWindowPresentation {
+    public static var level: NSWindow.Level { .normal }
+    public static let hidesOnDeactivate = false
 }
 
 public enum QuickPanelInputPresentation {

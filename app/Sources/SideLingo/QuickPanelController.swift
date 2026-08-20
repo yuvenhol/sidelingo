@@ -82,10 +82,10 @@ final class QuickPanelController: NSWindowController {
         panel.appearance = NSAppearance(named: .darkAqua)
         panel.isOpaque = false
         panel.backgroundColor = .clear
-        panel.level = .floating
+        panel.level = QuickPanelWindowPresentation.level
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.isMovableByWindowBackground = true
-        panel.hidesOnDeactivate = false
+        panel.hidesOnDeactivate = QuickPanelWindowPresentation.hidesOnDeactivate
         panel.hasShadow = true
         super.init(window: panel)
 

@@ -2,6 +2,11 @@ import XCTest
 @testable import SideLingoCore
 
 final class QuickPanelShortcutTests: XCTestCase {
+    func testQuickPanelUsesNormalWindowLevelSoOtherAppsCanCoverIt() {
+        XCTAssertEqual(QuickPanelWindowPresentation.level, .normal)
+        XCTAssertFalse(QuickPanelWindowPresentation.hidesOnDeactivate)
+    }
+
     func testInputPresentationUsesCenteredSingleLineEditorAndFullPreview() {
         XCTAssertEqual(QuickPanelInputPresentation.editorLineLimit, 1)
         XCTAssertTrue(QuickPanelInputPresentation.centersControlsVertically)
