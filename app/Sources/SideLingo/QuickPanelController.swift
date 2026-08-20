@@ -3,20 +3,36 @@ import Combine
 import SideLingoCore
 import SwiftUI
 
+@MainActor
+private final class SystemDictionarySpeaker {
+    private let synthesizer = NSSpeechSynthesizer()
+
+    func speak(_ text: String) {
+        synthesizer.stopSpeaking()
+        synthesizer.startSpeaking(text)
+    }
+
+    func stop() {
+        synthesizer.stopSpeaking()
+    }
+}
+
 final class QuickPanel: NSPanel {
+    var onCancel: (() -> Void)?
+
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         if event.keyCode == 53 {
-            orderOut(nil)
+            onCancel?()
             return true
         }
         return super.performKeyEquivalent(with: event)
     }
 
     override func cancelOperation(_ sender: Any?) {
-        orderOut(nil)
+        onCancel?()
     }
 }
 
@@ -26,12 +42,14 @@ final class QuickPanelViewModel: ObservableObject {
     @Published var source = "Selection"
     @Published var input = ""
     @Published var output = CompanionOutput(primary: "", secondaryTitle: "", secondary: "")
+    @Published var dictionary: DictionaryPresentation?
     @Published var unavailableMessage: String?
     @Published var isLoading = false
     @Published var isCopyEnabled = false
 
     var onRun: (() -> Void)?
     var onCopy: (() -> Void)?
+    var onSpeak: (() -> Void)?
     var onHide: (() -> Void)?
     var onPlaceholderAction: (() -> Void)?
 }
@@ -39,13 +57,19 @@ final class QuickPanelViewModel: ObservableObject {
 @MainActor
 final class QuickPanelController: NSWindowController {
     private let processingSession: QuickPanelProcessingSession
+    private let speaker = SystemDictionarySpeaker()
     private let viewModel = QuickPanelViewModel()
     private var escapeMonitor: Any?
     private var cancellables: Set<AnyCancellable> = []
 
-    init(processor: any ProviderStreaming, historyStore: SQLiteHistoryStore?) {
+    init(
+        processor: any ProviderStreaming,
+        dictionary: (any DictionaryLookupProviding)?,
+        historyStore: SQLiteHistoryStore?
+    ) {
         processingSession = QuickPanelProcessingSession(
             processor: processor,
+            dictionary: dictionary,
             historyRecorder: historyStore
         )
         let panelHeight = CGFloat(QuickPanelInputPresentation.panelHeight)
@@ -67,8 +91,10 @@ final class QuickPanelController: NSWindowController {
 
         viewModel.onRun = { [weak self] in self?.run() }
         viewModel.onCopy = { [weak self] in self?.copyPrimary() }
+        viewModel.onSpeak = { [weak self] in self?.speakDictionaryWord() }
         viewModel.onHide = { [weak self] in self?.hide() }
         viewModel.onPlaceholderAction = { NSSound.beep() }
+        panel.onCancel = { [weak self] in self?.hide() }
 
         let hostingView = NSHostingView(rootView: QuickPanelView(model: viewModel))
         hostingView.translatesAutoresizingMaskIntoConstraints = false
@@ -88,20 +114,24 @@ final class QuickPanelController: NSWindowController {
     required init?(coder: NSCoder) { nil }
 
     func show(mode: CompanionMode, text: String, source: SelectionSource) {
+        speaker.stop()
         viewModel.mode = mode
         viewModel.input = text
         viewModel.source = source == .accessibility ? "Selection" : "Clipboard"
         viewModel.unavailableMessage = nil
+        viewModel.dictionary = nil
         viewModel.output = CompanionOutput(primary: "", secondaryTitle: "", secondary: "")
         processingSession.submit(mode: mode, text: text)
         present()
     }
 
     func showUnavailable(mode: CompanionMode, reason: InvocationUnavailableReason) {
+        speaker.stop()
         processingSession.cancel()
         viewModel.mode = mode
         viewModel.source = "No selection"
         viewModel.input = ""
+        viewModel.dictionary = nil
         viewModel.unavailableMessage = reason == .permissionRequired
             ? "Accessibility permission is required to read selected text from another app."
             : "No new selected text was found. The previous clipboard was not reused."
@@ -115,18 +145,26 @@ final class QuickPanelController: NSWindowController {
 
     private func run() {
         guard let request = QuickPanelRunPolicy.request(for: viewModel.input) else { return }
+        speaker.stop()
         viewModel.input = request.text
         viewModel.source = request.sourceLabel
         viewModel.unavailableMessage = nil
+        viewModel.dictionary = nil
         viewModel.output = CompanionOutput(primary: "", secondaryTitle: "", secondary: "")
         processingSession.submit(mode: viewModel.mode, text: request.text)
     }
 
     private func copyPrimary() {
         guard viewModel.isCopyEnabled else { return }
+        let value = viewModel.dictionary?.copyText ?? viewModel.output.primary
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
-        pasteboard.setString(viewModel.output.primary, forType: .string)
+        pasteboard.setString(value, forType: .string)
+    }
+
+    private func speakDictionaryWord() {
+        guard let text = viewModel.dictionary?.speechText else { return }
+        speaker.speak(text)
     }
 
     private func apply(_ state: QuickPanelProcessingState) {
@@ -137,16 +175,25 @@ final class QuickPanelController: NSWindowController {
         }
         switch state {
         case .idle:
+            viewModel.dictionary = nil
             viewModel.isCopyEnabled = false
         case let .streaming(partial):
+            viewModel.dictionary = nil
             viewModel.unavailableMessage = nil
             viewModel.output = QuickPanelResultPresentation.output(for: partial)
             viewModel.isCopyEnabled = false
         case let .success(output):
+            viewModel.dictionary = nil
             viewModel.unavailableMessage = nil
             viewModel.output = output
             viewModel.isCopyEnabled = processingSession.isCopyEnabled
+        case let .dictionary(lookup):
+            viewModel.unavailableMessage = nil
+            viewModel.dictionary = DictionaryPresentation(lookup: lookup)
+            viewModel.output = CompanionOutput(primary: "", secondaryTitle: "", secondary: "")
+            viewModel.isCopyEnabled = processingSession.isCopyEnabled
         case let .error(message):
+            viewModel.dictionary = nil
             viewModel.unavailableMessage = message
             viewModel.isCopyEnabled = false
             viewModel.output = CompanionOutput(
@@ -158,6 +205,7 @@ final class QuickPanelController: NSWindowController {
     }
 
     private func hide() {
+        speaker.stop()
         processingSession.cancel()
         window?.orderOut(nil)
     }

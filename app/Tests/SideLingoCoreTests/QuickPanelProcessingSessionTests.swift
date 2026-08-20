@@ -4,6 +4,192 @@ import XCTest
 
 @MainActor
 final class QuickPanelProcessingSessionTests: XCTestCase {
+    func testTranslateDictionaryHitSkipsProviderAndRecordsLocalResult() async {
+        let history = HistoryRecorderSpy()
+        let provider = ControlledStreamingProcessor()
+        let lookup = DictionaryLookup(
+            query: "relocated",
+            lemma: "relocate",
+            entry: DictionaryEntry(
+                word: "relocate",
+                phonetic: "ˌriːləʊˈkeɪt",
+                definition: "move to a new place",
+                translation: "搬迁；重新安置",
+                pos: "v:100",
+                collins: 2,
+                oxford: false,
+                tags: ["ielts"],
+                bncRank: 7342,
+                frequencyRank: 5981,
+                exchange: "d:relocated",
+                detail: "",
+                audio: ""
+            )
+        )
+        let dictionary = DictionaryLookupStub(result: lookup)
+        let session = QuickPanelProcessingSession(
+            processor: provider,
+            dictionary: dictionary,
+            historyRecorder: history
+        )
+
+        session.submit(mode: .translate, text: "relocated")
+        await waitUntil { session.state == .dictionary(lookup) }
+
+        let startedTexts = await provider.startedTexts()
+        XCTAssertEqual(startedTexts, [])
+        XCTAssertTrue(session.isInputEditable)
+        XCTAssertTrue(session.isCopyEnabled)
+        XCTAssertEqual(history.records.map(\.source), ["relocated"])
+        XCTAssertEqual(history.records.map(\.result), ["搬迁；重新安置"])
+        XCTAssertEqual(history.records.map(\.kind), [.dictionary])
+        XCTAssertEqual(history.records.map(\.dictionaryLemma), ["relocate"])
+    }
+
+    func testStaleDictionaryLookupCannotOverwriteNewerProviderResultOrHistory() async {
+        let history = HistoryRecorderSpy()
+        let provider = ControlledStreamingProcessor()
+        let staleLookup = DictionaryLookup(
+            query: "older",
+            lemma: "old",
+            entry: DictionaryEntry(
+                word: "old",
+                phonetic: "",
+                definition: "",
+                translation: "旧",
+                pos: "",
+                collins: nil,
+                oxford: false,
+                tags: [],
+                bncRank: nil,
+                frequencyRank: nil,
+                exchange: "",
+                detail: "",
+                audio: ""
+            )
+        )
+        let dictionary = BlockingDictionaryLookup(result: staleLookup)
+        let session = QuickPanelProcessingSession(
+            processor: provider,
+            dictionary: dictionary,
+            historyRecorder: history
+        )
+
+        session.submit(mode: .translate, text: "older")
+        await dictionary.waitUntilStarted()
+        session.submit(mode: .improve, text: "newer")
+        await provider.waitUntilStarted(text: "newer")
+        let newest = CompanionOutputPartial(
+            primary: "newer result",
+            secondaryTitle: "CHANGES",
+            secondary: "detail"
+        )
+        await provider.yield(newest, text: "newer")
+        await provider.finish(text: "newer")
+        let expected = CompanionOutput(
+            primary: "newer result",
+            secondaryTitle: "CHANGES",
+            secondary: "detail"
+        )
+        await waitUntil { session.state == .success(expected) }
+
+        dictionary.release()
+        for _ in 0..<20 { await Task.yield() }
+
+        XCTAssertEqual(session.state, .success(expected))
+        XCTAssertEqual(history.records.map(\.source), ["newer"])
+    }
+
+    func testDictionaryEntryWithoutChineseTranslationFallsBackToProvider() async {
+        let provider = ControlledStreamingProcessor()
+        let lookup = DictionaryLookup(
+            query: "english-only",
+            lemma: "english-only",
+            entry: DictionaryEntry(
+                word: "english-only",
+                phonetic: "",
+                definition: "an English definition",
+                translation: "   ",
+                pos: "",
+                collins: nil,
+                oxford: false,
+                tags: [],
+                bncRank: nil,
+                frequencyRank: nil,
+                exchange: "",
+                detail: "",
+                audio: ""
+            )
+        )
+        let session = QuickPanelProcessingSession(
+            processor: provider,
+            dictionary: DictionaryLookupStub(result: lookup)
+        )
+
+        session.submit(mode: .translate, text: "english-only")
+        for _ in 0..<100 { await Task.yield() }
+
+        let startedTexts = await provider.startedTexts()
+        XCTAssertEqual(startedTexts, ["english-only"])
+        session.cancel()
+    }
+
+    func testTranslateDictionaryMissFallsBackToProviderStream() async {
+        let provider = ControlledStreamingProcessor()
+        let dictionary = DictionaryLookupStub(result: nil)
+        let session = QuickPanelProcessingSession(processor: provider, dictionary: dictionary)
+
+        session.submit(mode: .translate, text: "not in dictionary")
+        await provider.waitUntilStarted(text: "not in dictionary")
+        let complete = CompanionOutputPartial(
+            primary: "普通翻译",
+            secondaryTitle: "SUGGESTED REPLY",
+            secondary: "Thanks."
+        )
+        await provider.yield(complete, text: "not in dictionary")
+        await provider.finish(text: "not in dictionary")
+
+        let expected = CompanionOutput(
+            primary: "普通翻译",
+            secondaryTitle: "SUGGESTED REPLY",
+            secondary: "Thanks."
+        )
+        await waitUntil { session.state == .success(expected) }
+    }
+
+    func testImproveBypassesDictionaryEvenWhenEntryExists() async {
+        let provider = ControlledStreamingProcessor()
+        let lookup = DictionaryLookup(
+            query: "relocate",
+            lemma: "relocate",
+            entry: DictionaryEntry(
+                word: "relocate",
+                phonetic: "",
+                definition: "move",
+                translation: "搬迁",
+                pos: "v:100",
+                collins: nil,
+                oxford: false,
+                tags: [],
+                bncRank: nil,
+                frequencyRank: nil,
+                exchange: "",
+                detail: "",
+                audio: ""
+            )
+        )
+        let session = QuickPanelProcessingSession(
+            processor: provider,
+            dictionary: DictionaryLookupStub(result: lookup)
+        )
+
+        session.submit(mode: .improve, text: "relocate")
+        await provider.waitUntilStarted(text: "relocate")
+
+        XCTAssertEqual(session.state, .streaming(CompanionOutputPartial()))
+        session.cancel()
+    }
+
     func testPublishesPartialFieldsAndCommitsOnlyAfterSuccessfulCompletion() async {
         let history = HistoryRecorderSpy()
         let processor = ControlledStreamingProcessor()
@@ -243,6 +429,10 @@ private actor ControlledStreamingProcessor: ProviderStreaming {
         return stream
     }
 
+    func startedTexts() -> [String] {
+        continuations.keys.sorted()
+    }
+
     func waitUntilStarted(text: String) async {
         while continuations[text] == nil {
             await Task.yield()
@@ -262,6 +452,55 @@ private actor ControlledStreamingProcessor: ProviderStreaming {
     func fail(_ error: Error, text: String) async {
         await waitUntilStarted(text: text)
         continuations[text]?.finish(throwing: error)
+    }
+}
+
+private final class BlockingDictionaryLookup: @unchecked Sendable, DictionaryLookupProviding {
+    private let condition = NSCondition()
+    private let result: DictionaryLookup?
+    private var started = false
+    private var released = false
+
+    init(result: DictionaryLookup?) {
+        self.result = result
+    }
+
+    func lookup(_ query: String) throws -> DictionaryLookup? {
+        condition.lock()
+        started = true
+        condition.broadcast()
+        while !released {
+            condition.wait()
+        }
+        condition.unlock()
+        return result
+    }
+
+    func waitUntilStarted() async {
+        while true {
+            let value = condition.withLock { started }
+            if value { return }
+            await Task.yield()
+        }
+    }
+
+    func release() {
+        condition.lock()
+        released = true
+        condition.broadcast()
+        condition.unlock()
+    }
+}
+
+private final class DictionaryLookupStub: @unchecked Sendable, DictionaryLookupProviding {
+    private let result: DictionaryLookup?
+
+    init(result: DictionaryLookup?) {
+        self.result = result
+    }
+
+    func lookup(_ query: String) throws -> DictionaryLookup? {
+        result
     }
 }
 

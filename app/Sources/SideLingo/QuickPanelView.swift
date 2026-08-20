@@ -106,23 +106,26 @@ struct QuickPanelView: View {
     }
 
     private var resultRegion: some View {
+        Group {
+            if let dictionary = model.dictionary {
+                dictionaryResultRegion(dictionary)
+            } else {
+                companionResultRegion
+            }
+        }
+        .padding(.horizontal, 22)
+        .padding(.vertical, 18)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .modifier(ResultTextSelectionModifier())
+    }
+
+    private var companionResultRegion: some View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     sectionLabel(primaryTitle, primary: true)
                     Spacer()
-                    Button(action: { model.onCopy?() }) {
-                        HStack(spacing: 6) {
-                            Text("Copy")
-                            if let shortcutKeycap = QuickPanelResultPresentation.copyButtonKeycap {
-                                keycap(shortcutKeycap)
-                            }
-                        }
-                        .padding(.horizontal, 8)
-                        .frame(height: 28)
-                    }
-                    .buttonStyle(PanelButtonStyle())
-                    .disabled(!model.isCopyEnabled)
+                    copyButton
                 }
                 if !model.output.primary.isEmpty {
                     Text(model.output.primary)
@@ -156,10 +159,85 @@ struct QuickPanelView: View {
                 Spacer()
             }
         }
-        .padding(.horizontal, 22)
-        .padding(.vertical, 18)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .modifier(ResultTextSelectionModifier())
+    }
+
+    private func dictionaryResultRegion(_ dictionary: DictionaryPresentation) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        sectionLabel("Dictionary · ECDICT", primary: true)
+                        Text(dictionary.heading)
+                            .font(.system(size: 25, weight: .semibold))
+                            .foregroundStyle(text)
+                        HStack(spacing: 8) {
+                            if let phonetic = dictionary.phonetic {
+                                Text(phonetic)
+                            }
+                            if let partOfSpeech = dictionary.partOfSpeech {
+                                Text(partOfSpeech)
+                            }
+                        }
+                        .font(.system(size: 13))
+                        .foregroundStyle(muted)
+                    }
+                    Spacer()
+                    Button("Speak") { model.onSpeak?() }
+                        .buttonStyle(PanelButtonStyle())
+                    copyButton
+                }
+
+                if !dictionary.badges.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 7) {
+                            ForEach(dictionary.badges, id: \.self) { badge in
+                                Text(badge)
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundStyle(Color(hex: 0xDCCEFF))
+                                    .padding(.horizontal, 8)
+                                    .frame(height: 24)
+                                    .background(accent.opacity(0.09))
+                                    .clipShape(Capsule())
+                            }
+                        }
+                    }
+                }
+
+                ForEach(Array(dictionary.sections.enumerated()), id: \.offset) { _, section in
+                    VStack(alignment: .leading, spacing: 7) {
+                        sectionLabel(section.title, primary: false)
+                        Text(section.value)
+                            .font(.system(size: 14))
+                            .foregroundStyle(Color(hex: 0xE3DEE8))
+                            .lineSpacing(5)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(12)
+                    .background(Color.white.opacity(0.025))
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .stroke(borderSoft, lineWidth: 1)
+                    )
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var copyButton: some View {
+        Button(action: { model.onCopy?() }) {
+            HStack(spacing: 6) {
+                Text("Copy")
+                if let shortcutKeycap = QuickPanelResultPresentation.copyButtonKeycap {
+                    keycap(shortcutKeycap)
+                }
+            }
+            .padding(.horizontal, 8)
+            .frame(height: 28)
+        }
+        .buttonStyle(PanelButtonStyle())
+        .disabled(!model.isCopyEnabled)
     }
 
     private var statusBar: some View {
@@ -168,7 +246,7 @@ struct QuickPanelView: View {
             statusPill(model.source)
             HStack(spacing: 6) {
                 Circle().fill(green).frame(width: 6, height: 6)
-                Text("DeepSeek")
+                Text(model.dictionary == nil ? "DeepSeek" : "ECDICT · Offline")
             }
             .font(.system(size: 11, weight: .semibold))
             .foregroundStyle(muted)

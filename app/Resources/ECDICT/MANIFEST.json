@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "source": {
+    "commit": "bc015ed2e24a7abef49fc6dbbb7fe32c1dadaf8b",
+    "archive_sha256": "f370a0ecb58ada758d9dfe739db1667fd4ed87ed3055a4a7cb6c7054ecdf83d6",
+    "csv_sha256": "88fce01e0a30524192a62e363d47eeb036fa17820d5826121b3b419fd67a3996",
+    "lemma_sha256": "e255b097404e3e0052060e2ddf6e15a1414f577071d63d51d2ca0ce9dacee0fc"
+  },
+  "database_sha256": "f7de029f4a93b2540de362fe5249a9b0231c0449dec4527b5451569bd79bedb5",
+  "entries": 3402564,
+  "lemmas": 101909,
+  "representative_entries": {
+    "as soon as possible": "尽快",
+    "a bit": "一点儿；有一点儿"
+  },
+  "representative_lemmas": {
+    "relocated": "relocate",
+    "gave": "give"
+  }
+}

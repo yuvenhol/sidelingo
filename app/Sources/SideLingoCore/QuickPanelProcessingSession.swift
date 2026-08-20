@@ -11,6 +11,7 @@ public enum QuickPanelProcessingState: Equatable, Sendable {
     case idle
     case streaming(CompanionOutputPartial)
     case success(CompanionOutput)
+    case dictionary(DictionaryLookup)
     case error(String)
 }
 
@@ -24,20 +25,29 @@ public final class QuickPanelProcessingSession: ObservableObject {
     }
 
     public var isCopyEnabled: Bool {
-        guard case let .success(output) = state else { return false }
-        return !output.primary.isEmpty
+        switch state {
+        case let .success(output):
+            !output.primary.isEmpty
+        case let .dictionary(lookup):
+            !lookup.entry.translation.isEmpty
+        default:
+            false
+        }
     }
 
     private let processor: any ProviderStreaming
+    private let dictionary: (any DictionaryLookupProviding)?
     private let historyRecorder: (any HistoryRecording)?
     private var task: Task<Void, Never>?
     private var requestID = 0
 
     public init(
         processor: any ProviderStreaming,
+        dictionary: (any DictionaryLookupProviding)? = nil,
         historyRecorder: (any HistoryRecording)? = nil
     ) {
         self.processor = processor
+        self.dictionary = dictionary
         self.historyRecorder = historyRecorder
     }
 
@@ -46,9 +56,32 @@ public final class QuickPanelProcessingSession: ObservableObject {
         requestID += 1
         let submittedRequestID = requestID
         let processor = processor
+        let dictionary = dictionary
+        let historyRecorder = historyRecorder
         state = .streaming(CompanionOutputPartial())
 
         task = Task { [weak self] in
+            if mode == .translate, let dictionary {
+                let lookup = try? await Task.detached(priority: .userInitiated) {
+                    try dictionary.lookup(text)
+                }.value
+                guard let self, self.requestID == submittedRequestID else { return }
+                if let lookup,
+                   !lookup.entry.translation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    self.state = .dictionary(lookup)
+                    let record = HistoryRecord(
+                        mode: mode,
+                        source: text,
+                        result: lookup.entry.translation,
+                        createdAt: Date().timeIntervalSince1970,
+                        kind: .dictionary,
+                        dictionaryLemma: lookup.lemma
+                    )
+                    try? historyRecorder?.append(record)
+                    self.task = nil
+                    return
+                }
+            }
             do {
                 let stream = try await processor.stream(mode: mode, text: text)
                 var finalPartial: CompanionOutputPartial?

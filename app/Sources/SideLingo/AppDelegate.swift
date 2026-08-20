@@ -50,8 +50,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let processor = ConfiguredProviderProcessor(
             settingsStore: providerSettings
         )
+        let dictionary = makeDictionaryStore()
+        if dictionary == nil {
+            logger.error("Bundled ECDICT database is unavailable; Translate will use the provider fallback.")
+        }
         quickPanel = QuickPanelController(
             processor: processor,
+            dictionary: dictionary,
             historyStore: makeHistoryStore(in: applicationSupportDirectory)
         )
         settingsWindow = ProviderSettingsWindowController(
@@ -171,6 +176,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.items.forEach { $0.target = self }
         item.menu = menu
         statusItem = item
+    }
+
+    private func makeDictionaryStore() -> SQLiteDictionaryStore? {
+        guard let resourceDirectory = Bundle.main.resourceURL else { return nil }
+        let path = resourceDirectory
+            .appendingPathComponent("ECDICT", isDirectory: true)
+            .appendingPathComponent("ecdict.sqlite")
+            .path
+        return try? SQLiteDictionaryStore(path: path)
     }
 
     private func makeHistoryStore(in applicationSupportDirectory: URL) -> SQLiteHistoryStore? {
